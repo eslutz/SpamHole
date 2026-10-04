@@ -53,5 +53,8 @@ forms, or external assets. The web host still receives page-load requests.
 Public support uses repository issues and must contain only synthetic/redacted
 data. Security vulnerabilities use GitHub private reporting.
 
-This policy must be checked against the final distributed binary and published
-at a user-approved public URL before App Store submission.
+The public [privacy policy](https://eslutz.github.io/SpamHole/privacy.html) and
+[support page](https://eslutz.github.io/SpamHole/support.html) are deployed from
+`docs/site/` using GitHub Pages. Both returned HTTPS 200 on October 4, 2026.
+This policy must still be checked against the final distributed binary and
+reviewed before App Store submission.

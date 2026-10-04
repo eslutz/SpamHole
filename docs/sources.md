@@ -14,6 +14,15 @@ contact, purchase or registration was made. Historical observations below retain
 their October 3 dates; the follow-up does not claim current payload compatibility
 or measured SMS accuracy.
 
+The [subsequent SMS options report](research/sms-filtering-options-2026-10-04.md)
+found Smishtank's working bulk endpoint. Its historical data still lacks the
+rights and substantive sender-confirmation lifecycle needed for automatic Junk.
+The [FTC availability follow-up](research/ftc-source-availability-2026-10-04.md)
+verified a complete 24-file refresh using the app's actual Swift transport,
+parser and SQLite store. Earlier Python 403 observations are client-specific,
+not proof that the app's downloader fails. Physical-network and extension
+acceptance remain pending; the configured publisher endpoint is unchanged.
+
 ## Live findings
 
 | Source | Observed result | Meaning and V1 decision |

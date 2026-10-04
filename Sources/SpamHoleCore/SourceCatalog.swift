@@ -14,7 +14,7 @@ public enum SourceCatalog {
     }
     public static let releaseBlockers = [
         "No reviewed free/open source provides confirmed exact SMS senders with expiry and corrections. Feed-based SMS Junk classification and public release remain gated.",
-        "FTC downloads must be proven on a physical iPhone network; current direct host requests returned HTTP 403."
+        "FTC downloads and complete refreshes still need physical iPhone network verification; a full host Swift import has been checked."
     ]
 
     /// Persisted settings and publisher payloads cannot install their own source approval.
