@@ -14,6 +14,11 @@ rechecked nine candidates and found none qualified. Smishtank is the strongest
 qualification lead, with current endpoint, rights, exact-identifier and lifecycle
 evidence still missing. No source was promoted to trusted authority.
 
+The [SMS options research](research/sms-filtering-options-2026-10-04.md) subsequently
+found Smishtank's working bulk CSV endpoint. Its historical records, rights and
+sender-confirmation lifecycle still do not qualify it. The missing-endpoint
+finding is superseded; the source authority and release gate remain unchanged.
+
 A qualifying source must expose exact SMS sender identifiers, current SMS-specific
 confirmation evidence and methodology, dated coverage, an explicit free/open
 license permitting on-device processing, and withdrawals/corrections. Its
@@ -52,6 +57,10 @@ Contacts and actual cellular acceptance remain separate. Device-only behavior re
   contact data, or lookup-based requests.
 
 ## Distribution — pending
+
+[Release automation](release-automation.md) checks packaging, configurable identity
+and privacy manifests without signing credentials. Its unsigned archive check
+does not establish signed distribution or physical acceptance.
 
 - Core, hosted and UI tests pass for the intended release candidate; verify large
   text, light/dark and accessibility behavior. Automated audits do not establish

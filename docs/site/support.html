@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Support for the SpamHole development version, feature limits, source attribution, public issue reporting, and private vulnerability reporting.">
+    <title>Support — SpamHole</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header><div class="wrap header-inner">
+        <a class="brand" href="index.html"><span class="mark" aria-hidden="true"></span>SpamHole</a>
+        <nav aria-label="Main navigation"><a href="privacy.html">Privacy</a><a href="support.html" aria-current="page">Support</a><a href="https://github.com/eslutz/SpamHole">Source code</a></nav>
+    </div></header>
+    <main id="main" class="wrap"><div class="content">
+        <p class="eyebrow">Development support</p>
+        <h1>Know what to expect.</h1>
+        <p class="lead">SpamHole is an open-source development app for iPhone on iOS 26 or later. It has not been submitted to the App Store, and this site is not an app download.</p>
+        <div class="notice"><p><strong>Public release remains blocked.</strong> No reviewed free/open source currently qualifies for automatic SMS Junk. Personal allow/block rules are available independently. Physical-device acceptance and distribution review remain pending.</p></div>
+        <section><h2>Report a problem or ask a question</h2><p>Use the repository’s public issues for app bugs, documentation feedback, and privacy questions. Include the app version, iOS version, general device model, the screen involved, expected behavior, and a reproduction using synthetic data.</p><p><strong>Issues are public.</strong> Do not post personal phone numbers or sender identifiers, message bodies, contacts, exported rule backups, raw device logs, credentials, or signing material. Redact screenshots and use synthetic examples.</p><a class="button" href="https://github.com/eslutz/SpamHole/issues">Open public support issues</a></section>
+        <section><h2>Report a security vulnerability privately</h2><p>GitHub private vulnerability reporting is enabled for this repository. Use that route for suspected security vulnerabilities rather than publishing them in a support issue. Provide synthetic reproduction data and omit credentials and personal communications.</p><p><a href="https://github.com/eslutz/SpamHole/security/advisories/new">Report a vulnerability privately</a> · <a href="https://github.com/eslutz/SpamHole/blob/main/SECURITY.md">Read the security policy</a></p></section>
+        <section><h2>Common questions</h2>
+            <details><summary>Does “offline” mean the app never uses the network?</summary><p>No. Calls and SMS senders are matched locally, but the containing app downloads datasets directly from subscribed publishers. Publishers can see request metadata, including your IP address and timing. There are no incoming-call lookups or message uploads. See the <a href="privacy.html">privacy policy</a>.</p></details>
+            <details><summary>Why did an SMS stay outside Junk?</summary><p>Feed-based SMS Junk is currently gated. Only explicit personal rules can request Junk in this build. Apple’s Message Filter applies to eligible SMS/MMS from unknown senders; iMessage and messages from Contacts are outside this filter. Missing, invalid, or inaccessible protection snapshots produce no Junk decision.</p></details>
+            <details><summary>What does a caller label prove?</summary><p>A label reflects local source evidence, not verified ownership or origination. FTC complaints are unverified, and caller IDs can be spoofed. The association index is a proposed heuristic rather than a calibrated probability. Custom lists identify callers but cannot authorize automatic blocking.</p></details>
+            <details><summary>Why do removed call entries still appear?</summary><p>A rebuilt local snapshot and the entries installed in iOS are separate states. Removing a rule or disabling a source changes the local snapshot, but installed call entries remain until a Call Directory reload succeeds. The Protection screen shows installation state and stale-state information. Background refresh timing is controlled by iOS and is best-effort.</p></details>
+            <details><summary>How can I correct a wanted caller or sender?</summary><p>Use a personal allow rule or the Lookup screen’s correction action for the exact identifier. This affects SpamHole locally, takes priority over its other decisions, and does not verify the sender’s owner or send a report to the publisher. Call changes still require a successful reload.</p></details>
+            <details><summary>How do I export or remove my data?</summary><p>Settings provides Export Rules &amp; Settings; the resulting file contains personal identifiers and preferences. Remove individual rules in Lookup. Remove a custom source to delete its saved token and subscription; disabling it does not delete its credential. Before uninstalling, remove custom sources to clear their Keychain tokens. Exported files must be deleted separately. See <a href="privacy.html">retention and deletion details</a>.</p></details>
+        </section>
+        <section><h2>Source attribution and authority</h2><ul>
+            <li><a href="https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data">FTC Do Not Call reported-call data</a> is the default call-identification source. It is U.S. government public data based on unverified consumer reports. It has no automatic block or SMS Junk authority. Current on-device download acceptance remains open.</li>
+            <li><a href="https://opendata.fcc.gov/resource/vakf-fz8e.json">FCC text-complaint data</a> is a research-only source, disabled by default. Its observed dataset metadata identifies it as Public Domain U.S. Government. Complaint membership is not substantive sender confirmation, and this adapter has no SMS Junk authority.</li>
+            <li>Custom sources retain their publisher’s rights and terms. Subscription settings or feed-supplied grades cannot grant reviewed confirmation authority.</li>
+        </ul><p>Dataset attribution does not imply publisher endorsement. <a href="https://github.com/eslutz/SpamHole/blob/main/docs/sources.md">Source contracts and qualification findings</a> explain the evidence limits. <a href="https://github.com/eslutz/SpamHole/blob/main/docs/release-checklist.md">Release requirements</a> track the remaining gates.</p></section>
+    </div></main>
+    <footer><div class="wrap"><p><a href="privacy.html">Privacy policy</a> · <a href="index.html">About SpamHole</a></p><p class="small">Reviewed October 4, 2026 · Development version · No response-time commitment.</p></div></footer>
+</body>
+</html>

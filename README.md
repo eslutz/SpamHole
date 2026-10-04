@@ -58,6 +58,11 @@ custom feeds cannot promote their own allegations to confirmations.
 
 Original app code is MIT licensed. Dataset rights remain with each publisher.
 
+CI includes synthetic iOS simulator tests and unsigned Release archive validation.
+See [release automation](docs/release-automation.md) for artifact validation and its
+limits. Public privacy/support pages are maintained in `docs/site/` and deployed
+separately from app distribution.
+
 See [development status](docs/status.md), [source qualification](docs/sources.md),
 [release gates](docs/release-checklist.md), [contributing](CONTRIBUTING.md), and
 [security policy](SECURITY.md). Local operational reports and unpublished
