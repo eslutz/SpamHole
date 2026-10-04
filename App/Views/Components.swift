@@ -75,3 +75,17 @@ struct AccessibleChoice: View {
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
 }
+
+private struct SpamHoleBackground: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .scrollContentBackground(.hidden)
+            .background(Color("BrandBackground"))
+    }
+}
+
+extension View {
+    func spamHoleBackground() -> some View {
+        modifier(SpamHoleBackground())
+    }
+}

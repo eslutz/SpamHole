@@ -46,7 +46,7 @@ struct ProtectionView: View {
                 Text("Physical-device acceptance and distribution checks are required before public release.")
                     .font(.footnote).foregroundStyle(Color("SecondaryText"))
             }
-        }.navigationTitle("Protection").refreshable { _ = await model.refresh() }
+        }.spamHoleBackground().navigationTitle("Protection").refreshable { _ = await model.refresh() }
     }
 
     private var callStatus: String {

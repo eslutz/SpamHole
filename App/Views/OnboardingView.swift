@@ -8,7 +8,7 @@ struct OnboardingView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 56)).foregroundStyle(.teal).accessibilityHidden(true)
+                        .font(.system(size: 56)).foregroundStyle(Color("ActionAccent")).accessibilityHidden(true)
                     Text("Your lists.\nYour device.").font(.largeTitle.bold())
                     Text("SpamHole downloads reputation evidence, then keeps call identification and blocking local.")
                         .foregroundStyle(Color("SecondaryText"))
@@ -24,7 +24,7 @@ struct OnboardingView: View {
                     .frame(maxWidth: .infinity).accessibilityIdentifier("onboarding.continue")
                     .padding(.horizontal, 24).padding(.vertical, 12)
                     .background(.background)
-            }.navigationTitle("Welcome to SpamHole").navigationBarTitleDisplayMode(.inline)
+            }.spamHoleBackground().navigationTitle("Welcome to SpamHole").navigationBarTitleDisplayMode(.inline)
         }
     }
 }

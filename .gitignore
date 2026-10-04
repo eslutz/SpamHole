@@ -47,3 +47,6 @@ SpamHole-Rules*.json
 *.sqlite3-wal
 *.sqlite3-journal
 *.db
+
+# Local design comparison evidence
+/design-qa.md

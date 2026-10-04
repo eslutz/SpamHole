@@ -37,7 +37,7 @@ struct SourcesView: View {
             }
 
         }
-        .navigationTitle("Sources")
+        .spamHoleBackground().navigationTitle("Sources")
         .toolbar {
             Button("Add Source", systemImage: "plus") { presentingAdd = true }
                 .accessibilityIdentifier("source.add")
@@ -84,7 +84,7 @@ struct SourceDetailView: View {
                         }.disabled(model.isWorking)
                     }
                 }
-            }.navigationTitle(source.name).navigationBarTitleDisplayMode(.inline)
+            }.spamHoleBackground().navigationTitle(source.name).navigationBarTitleDisplayMode(.inline)
         } else { ContentUnavailableView("Source removed", systemImage: "tray") }
     }
 }
@@ -131,7 +131,7 @@ struct AddSourceView: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(Color("ErrorText")) } }
             }
-            .navigationTitle("Add Source").navigationBarTitleDisplayMode(.inline)
+            .spamHoleBackground().navigationTitle("Add Source").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.tint(.primary) }
                 ToolbarItem(placement: .confirmationAction) {

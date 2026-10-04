@@ -52,7 +52,7 @@ struct LookupView: View {
                 ForEach(model.rules) { rule in
                     HStack(alignment: .top) {
                         Image(systemName: rule.action == .allow ? "checkmark.shield" : "hand.raised")
-                            .foregroundStyle(rule.action == .allow ? Color.teal : Color.orange)
+                            .foregroundStyle(rule.action == .allow ? Color("SecondaryText") : Color("ActionAccent"))
                         VStack(alignment: .leading, spacing: 4) {
                             Text(rule.identifier).font(.headline)
                             Text(rule.action == .allow ? "Allow calls" : "Block calls")
@@ -65,7 +65,7 @@ struct LookupView: View {
             }
         }
         .scrollDismissesKeyboard(.immediately)
-        .navigationTitle("Lookup")
+        .spamHoleBackground().navigationTitle("Lookup")
         .toolbar { Button("Add Rule", systemImage: "plus") { senderFocused = false; showingRule = true }.accessibilityIdentifier("rule.add") }
         .sheet(isPresented: $showingRule) { RuleEditorView(model: model, initialSender: sender) }
         .sheet(item: $correction) { selection in
@@ -115,7 +115,7 @@ struct CorrectionView: View {
                 }
                 if let error { Section { Text(error).foregroundStyle(Color("ErrorText")) } }
             }
-            .navigationTitle("Correct Listing").navigationBarTitleDisplayMode(.inline)
+            .spamHoleBackground().navigationTitle("Correct Listing").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.tint(.primary) }
                 ToolbarItem(placement: .confirmationAction) {
@@ -181,7 +181,7 @@ struct RuleEditorView: View {
                 if let error { Section { Text(error).foregroundStyle(Color("ErrorText")) } }
             }
             .scrollDismissesKeyboard(.immediately)
-            .navigationTitle("Personal Rule").navigationBarTitleDisplayMode(.inline)
+            .spamHoleBackground().navigationTitle("Personal Rule").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { senderFocused = false; dismiss() }.tint(.primary) }
                 ToolbarItem(placement: .confirmationAction) {

@@ -54,7 +54,7 @@ struct SettingsView: View {
             }
         }
         .disabled(model.isWorking)
-        .navigationTitle("Settings")
+        .spamHoleBackground().navigationTitle("Settings")
         .fileExporter(isPresented: $exporting, document: backup, contentType: .json, defaultFilename: "SpamHole-Rules") { result in
             if case .failure(let error) = result { model.message = error.localizedDescription }
         }
@@ -82,7 +82,7 @@ struct PrivacyView: View {
             ReadableSection("Your control") {
                 Text("No accounts, ads, or analytics SDKs. Exporting rules puts personal phone numbers into a file at a destination you choose. Credentials and contact data are excluded.")
             }
-        }.navigationTitle("Privacy").navigationBarTitleDisplayMode(.inline)
+        }.spamHoleBackground().navigationTitle("Privacy").navigationBarTitleDisplayMode(.inline)
     }
 }
 
@@ -95,6 +95,6 @@ struct ReleaseRequirementsView: View {
             ReadableSection("Distribution · pending") {
                 Text("Signing, TestFlight delivery, hosted privacy/support pages, source attribution, and metadata review remain separate release requirements. This build has not been submitted to the App Store.")
             }
-        }.navigationTitle("Release Requirements").navigationBarTitleDisplayMode(.inline)
+        }.spamHoleBackground().navigationTitle("Release Requirements").navigationBarTitleDisplayMode(.inline)
     }
 }

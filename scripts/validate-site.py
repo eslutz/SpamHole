@@ -5,6 +5,8 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 import re
 import sys
+import struct
+import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parent.parent / "docs" / "site"
 
@@ -48,6 +50,30 @@ def validate():
             raise ValueError("Symlinks cannot enter the public site payload")
         if path.is_dir():
             continue
+        if path.suffix == ".png":
+            data = path.read_bytes()
+            if not data.startswith(b"\x89PNG\r\n\x1a\n") or not 24 <= len(data) <= 2_000_000:
+                raise ValueError("Invalid or oversized PNG")
+            width, height = struct.unpack(">II", data[16:24])
+            if not (0 < width <= 2048 and 0 < height <= 2048):
+                raise ValueError("PNG dimensions exceed public asset limits")
+            continue
+        if path.suffix == ".svg":
+            text = path.read_text(encoding="utf-8")
+            if re.search(r"/Users/|/private/var/|BEGIN .*PRIVATE KEY|<!DOCTYPE|<!ENTITY", text, re.IGNORECASE):
+                raise ValueError("Private or unsupported SVG content")
+            tree = ET.fromstring(text)
+            for element in tree.iter():
+                if element.tag.split("}")[-1] not in {"svg", "path", "circle", "rect", "g"}:
+                    raise ValueError("Unsupported SVG element")
+                if any(name.startswith("on") or name.split("}")[-1] in {"href", "style"} or "url(" in value for name, value in element.attrib.items()):
+                    raise ValueError("Active or external SVG content")
+            continue
+        if path.name == "bootstrap-icons-license.txt":
+            text = path.read_text(encoding="utf-8")
+            if "MIT License" not in text or re.search(r"/Users/|BEGIN .*PRIVATE KEY", text):
+                raise ValueError("Unexpected icon license contents")
+            continue
         if path.suffix not in {".html", ".css"}:
             raise ValueError(f"Unexpected public asset: {path.name}")
         text = path.read_text(encoding="utf-8")
@@ -80,5 +106,5 @@ def validate():
 if __name__ == "__main__":
     try:
         validate()
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, ET.ParseError, struct.error) as error:
         sys.exit(f"FAIL: {error}")
