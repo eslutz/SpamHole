@@ -1,0 +1,125 @@
+{
+  "checks_passed": 123,
+  "examples": {
+    "one_complaint": {
+      "family_values": [
+        1.0
+      ],
+      "E": 1.0,
+      "S": 11.750309741540455,
+      "B": 0.0,
+      "classification": {
+        "conservative": "no_action",
+        "balanced": "no_action",
+        "aggressive": "no_action"
+      }
+    },
+    "100_complaints_one_day": {
+      "family_values": [
+        5.0
+      ],
+      "E": 5.0,
+      "S": 46.473857148100976,
+      "B": 0.0,
+      "classification": {
+        "conservative": "no_action",
+        "balanced": "identify_reported_unwanted",
+        "aggressive": "identify_reported_unwanted"
+      }
+    },
+    "seven_days_one_family_and_any_number_of_mirrors": {
+      "family_values": [
+        25.0
+      ],
+      "E": 25.0,
+      "S": 95.60630663765926,
+      "B": 0.0,
+      "classification": {
+        "conservative": "identify_many_spam_reports",
+        "balanced": "identify_many_spam_reports",
+        "aggressive": "identify_many_spam_reports"
+      }
+    },
+    "seven_days_two_families": {
+      "family_values": [
+        25.0,
+        13.258894612738354
+      ],
+      "E": 29.640613114458425,
+      "S": 97.54016679037363,
+      "B": 0.0,
+      "classification": {
+        "conservative": "identify_many_spam_reports",
+        "balanced": "identify_many_spam_reports",
+        "aggressive": "identify_many_spam_reports"
+      }
+    },
+    "strong_current_origin_confirmation": {
+      "family_values": [
+        25.0,
+        13.258894612738354
+      ],
+      "E": 29.640613114458425,
+      "S": 97.54016679037363,
+      "B": 97.54016679037363,
+      "classification": {
+        "conservative": "automatic_block",
+        "balanced": "automatic_block",
+        "aggressive": "automatic_block"
+      }
+    },
+    "one_origin_confirmation_provider": {
+      "family_values": [
+        25.0,
+        13.258894612738354
+      ],
+      "E": 29.640613114458425,
+      "S": 97.54016679037363,
+      "B": 78.0321334322989,
+      "classification": {
+        "conservative": "identify_many_spam_reports",
+        "balanced": "automatic_block",
+        "aggressive": "automatic_block"
+      }
+    },
+    "legitimate_outgoing_or_spoof_conflict": {
+      "family_values": [
+        25.0,
+        13.258894612738354
+      ],
+      "E": 29.640613114458425,
+      "S": 97.54016679037363,
+      "B": 0.0,
+      "classification": {
+        "conservative": "identify_many_spam_reports",
+        "balanced": "identify_many_spam_reports",
+        "aggressive": "identify_many_spam_reports"
+      }
+    },
+    "all_evidence_28_days_older": {
+      "family_values": [
+        1.657361826592294,
+        0.828680913296147
+      ],
+      "E": 1.9474001462459456,
+      "S": 21.60617451332826,
+      "B": 0.0,
+      "classification": {
+        "conservative": "no_action",
+        "balanced": "no_action",
+        "aggressive": "identify_reported_unwanted"
+      }
+    },
+    "verified_assignment_reset": {
+      "family_values": [],
+      "E": 0.0,
+      "S": 0.0,
+      "B": 0.0,
+      "classification": {
+        "conservative": "no_action",
+        "balanced": "no_action",
+        "aggressive": "no_action"
+      }
+    }
+  }
+}

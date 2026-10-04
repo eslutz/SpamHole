@@ -1,0 +1,4 @@
+// Public defaults. Optional local overrides are never committed.
+SPAMHOLE_BUNDLE_IDENTIFIER = dev.ericslutz.SpamHole
+SPAMHOLE_APP_GROUP = group.$(SPAMHOLE_BUNDLE_IDENTIFIER)
+#include? "Local.xcconfig"

@@ -1,0 +1,49 @@
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+.xcodebuildmcp/
+*.xcresult
+*.xcarchive
+*.ipa
+__pycache__/
+
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.mobileprovision
+
+# Runtime databases and profiling captures
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+*.trace
+
+# Machine-specific configuration and generated Xcode project
+Configuration/Local.xcconfig
+*.xcodeproj/
+
+# Local operational evidence and unpublished distribution drafts
+/docs/reviews/
+/docs/distribution/
+/docs/implementation-status.md
+/docs/research/reputation-report-2026-10-03.md
+/docs/performance/smoke-*/
+/docs/screenshots/
+*.log
+
+# Personal rule exports and SQLite sidecars
+SpamHole-Rules*.json
+*.sqlite-journal
+*.sqlite3-shm
+*.sqlite3-wal
+*.sqlite3-journal
+*.db

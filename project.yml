@@ -1,0 +1,159 @@
+name: SpamHole
+fileGroups:
+  - Configuration
+options:
+  bundleIdPrefix: dev.ericslutz
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "27.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Configuration/Defaults.xcconfig
+  Release: Configuration/Defaults.xcconfig
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated
+    IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  SpamHoleCore:
+    path: .
+targets:
+  SpamHole:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+      - path: Configuration/App/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER)
+        INFOPLIST_FILE: Configuration/App/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Configuration/SpamHole.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: SpamHoleCore
+      - target: CallDirectory
+        embed: true
+      - target: MessageFilter
+        embed: true
+  CallDirectory:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extensions/CallDirectory
+      - path: Configuration/Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).CallDirectory
+        INFOPLIST_FILE: Configuration/CallDirectory/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Configuration/SpamHole.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: SpamHoleCore
+      - sdk: CallKit.framework
+  MessageFilter:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: Extensions/MessageFilter
+      - path: Configuration/Extensions/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).MessageFilter
+        INFOPLIST_FILE: Configuration/MessageFilter/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Configuration/SpamHole.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+    dependencies:
+      - package: SpamHoleCore
+      - sdk: IdentityLookup.framework
+  SpamHoleUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Tests/SpamHoleUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).UITests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: SpamHole
+  SpamHoleCoreTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/SpamHoleCoreTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).CoreTests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - package: SpamHoleCore
+  SpamHoleAppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/SpamHoleAppTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).AppTests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: SpamHole
+      - package: SpamHoleCore
+schemes:
+  SpamHole:
+    build:
+      targets:
+        SpamHole: all
+        SpamHoleUITests: [test]
+        SpamHoleCoreTests: [test]
+        SpamHoleAppTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      commandLineArguments:
+        "--ui-testing": true
+      gatherCoverageData: true
+      targets:
+        - SpamHoleCoreTests
+        - name: SpamHoleAppTests
+          selectedTests: [ProtectionPublicationTests]
+        - name: SpamHoleUITests
+          selectedTests: [SpamHoleUITests]
+    archive:
+      config: Release
+  SpamHolePerformance:
+    build:
+      targets:
+        SpamHole: all
+        SpamHoleAppTests: [test]
+        SpamHoleUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      commandLineArguments:
+        "--ui-testing": true
+      gatherCoverageData: false
+      targets:
+        - name: SpamHoleAppTests
+          selectedTests: [OfflinePerformanceTests]
+        - name: SpamHoleUITests
+          selectedTests: [OfflineLaunchPerformanceTests]
+    profile:
+      config: Release
