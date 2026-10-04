@@ -1,5 +1,10 @@
 # Practical SMS filtering options
 
+> Retired historical research: on October 4, 2026 the user chose a call-only
+> SpamHole and removed SMS filtering from scope. This report preserves earlier
+> findings; its SMS features, feed gates and recommendations are not current
+> product requirements. SpamHole has no message access.
+
 Checked October 4, 2026. **Sender-only SMS filtering already exists through personal rules. Automatic community/feed Junk filtering remains blocked by data qualification, not by an absent filtering engine.** No new source qualifies on the evidence below. No source authority, release gate or implementation was changed; no account, purchase or publisher message was made.
 
 ## Recommendation and decisions
@@ -12,7 +17,7 @@ Under the currently approved V1 contract, **hold public release until a feed qua
 
 ## Existing implementation and platform limits
 
-[`MessageFilterExtension.swift`](../../Extensions/MessageFilter/MessageFilterExtension.swift) reads only `queryRequest.sender`, loads the local App Group snapshot and returns allow/Junk or `.none`. It does not inspect a message body, record incoming messages or defer to a server. [`SnapshotBuilder.swift`](../../Sources/SpamHoleCore/SnapshotBuilder.swift) builds exact personal rules, applies allow precedence and requires reviewed SMS confirmation authority plus current evidence for automatic Junk. [`SourceCatalog.swift`](../../Sources/SpamHoleCore/SourceCatalog.swift) grants no current source that authority; custom imports cannot grant it themselves.
+[`MessageFilterExtension.swift` (historical source)](https://github.com/eslutz/SpamHole/blob/b48c9fd5688c74cd819810e9033bc58e44045f95/Extensions/MessageFilter/MessageFilterExtension.swift) reads only `queryRequest.sender`, loads the local App Group snapshot and returns allow/Junk or `.none`. It does not inspect a message body, record incoming messages or defer to a server. [`SnapshotBuilder.swift`](../../Sources/SpamHoleCore/SnapshotBuilder.swift) builds exact personal rules, applies allow precedence and requires reviewed SMS confirmation authority plus current evidence for automatic Junk. [`SourceCatalog.swift`](../../Sources/SpamHoleCore/SourceCatalog.swift) grants no current source that authority; custom imports cannot grant it themselves.
 
 Apple documents local classification as supported, and its API documentation describes unknown-sender SMS/MMS filtering, excluding Contacts senders and iMessage. Apple also says the extension cannot access the network directly or write shared containers. Its current iPhone user guide mentions SMS/MMS/RCS text filtering, so RCS behavior should be tested separately before claiming support. SpamHole's current supported claim remains SMS; this report does not expand it. [Apple IdentityLookup](https://developer.apple.com/documentation/identitylookup/sms-and-mms-message-filtering), [iOS 26 filtering guide](https://support.apple.com/en-gb/guide/iphone/iph203ab0be4/26/ios/26).
 

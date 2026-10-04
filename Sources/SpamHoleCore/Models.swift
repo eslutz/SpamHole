@@ -1,27 +1,32 @@
 import Foundation
 
 public enum CommunicationChannel: String, Codable, Sendable, CaseIterable {
-    case call, sms, both
-    public func includes(_ channel: CommunicationChannel) -> Bool { self == .both || self == channel }
+    case call
+    // Decode-only compatibility for the version 1 database; new writes reject these cases.
+    case sms, both
+    public static let allCases: [CommunicationChannel] = [.call]
 }
 public enum NumberRole: String, Codable, Sendable { case displayedSender, callback, advertised }
 public enum RuleAction: String, Codable, Sendable { case allow, block }
-public enum SourceFormat: String, Codable, Sendable, CaseIterable { case evidenceJSON, identificationCSV, ftcCSV, fccJSON }
+public enum SourceFormat: String, Codable, Sendable, CaseIterable {
+    case evidenceJSON, identificationCSV, ftcCSV
+    // Decode-only compatibility: the retired text-complaint source is removed on migration.
+    case fccJSON
+    public static let allCases: [SourceFormat] = [.evidenceJSON, .identificationCSV, .ftcCSV]
+}
 public enum PolicyPreset: String, Codable, Sendable, CaseIterable { case conservative, balanced, aggressive }
 public enum RefreshCadence: String, Codable, Sendable, CaseIterable { case manual, daily, weekly }
-public enum SMSDecisionAction: String, Codable, Sendable { case allow, junk }
 
 /// This approval belongs to the app's reviewed source registry. It is never read from a feed.
 public struct ReviewedSourceTrust: Codable, Sendable, Equatable {
     public var familyWeight: Double
     public var confirmationAuthority: Bool
-    public var smsJunkAuthority: Bool
     public var allowedConfirmationMethods: [String]
     public var maximumConfirmationGrade: Double
-    public init(familyWeight: Double = 1, confirmationAuthority: Bool = false, smsJunkAuthority: Bool = false,
+    public init(familyWeight: Double = 1, confirmationAuthority: Bool = false,
                 allowedConfirmationMethods: [String] = [], maximumConfirmationGrade: Double = 0) {
         self.familyWeight = familyWeight; self.confirmationAuthority = confirmationAuthority
-        self.smsJunkAuthority = smsJunkAuthority; self.allowedConfirmationMethods = allowedConfirmationMethods
+        self.allowedConfirmationMethods = allowedConfirmationMethods
         self.maximumConfirmationGrade = maximumConfirmationGrade
     }
 }
@@ -47,7 +52,7 @@ public struct EvidenceRecord: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var sourceID: String
     public var sourceFamilyID: String
-    /// Canonical exact sender; SMS short codes and alphanumeric senders remain separate from E.164.
+    /// Canonical exact E.164 telephone number.
     public var numberE164: String
     public var channel: CommunicationChannel
     public var numberRole: NumberRole
@@ -91,7 +96,7 @@ public struct PersonalRule: Codable, Sendable, Equatable, Identifiable {
     public var action: RuleAction
     public var createdAt: Date
     public var note: String?
-    public init(id: String = UUID().uuidString, identifier: String, channel: CommunicationChannel = .both,
+    public init(id: String = UUID().uuidString, identifier: String, channel: CommunicationChannel = .call,
                 action: RuleAction, createdAt: Date = Date(), note: String? = nil) {
         self.id = id; self.identifier = identifier; self.channel = channel; self.action = action; self.createdAt = createdAt
         self.note = note
@@ -163,27 +168,17 @@ public struct CallIdentificationEntry: Codable, Sendable, Equatable {
     public var label: String
     public init(number: Int64, label: String) { self.number = number; self.label = label }
 }
-public struct SMSDecisionEntry: Codable, Sendable, Equatable {
-    public var identifier: String
-    public var action: SMSDecisionAction
-    public var expiresAt: Date?
-    public var reason: String
-    public init(identifier: String, action: SMSDecisionAction, expiresAt: Date? = nil, reason: String) {
-        self.identifier = identifier; self.action = action; self.expiresAt = expiresAt; self.reason = reason
-    }
-}
 public struct GenerationMetadata: Codable, Sendable, Equatable, Identifiable {
     public var id: UUID
     public var createdAt: Date
     public var callIdentificationCount: Int
     public var callBlockCount: Int
-    public var smsDecisionCount: Int
     public var policy: PolicyPreset
     public var schemaVersion: Int
     public init(id: UUID = UUID(), createdAt: Date = Date(), callIdentificationCount: Int,
-                callBlockCount: Int, smsDecisionCount: Int, policy: PolicyPreset, schemaVersion: Int = 1) {
+                callBlockCount: Int, policy: PolicyPreset, schemaVersion: Int = 1) {
         self.id = id; self.createdAt = createdAt; self.callIdentificationCount = callIdentificationCount
-        self.callBlockCount = callBlockCount; self.smsDecisionCount = smsDecisionCount
+        self.callBlockCount = callBlockCount
         self.policy = policy; self.schemaVersion = schemaVersion
     }
 }
@@ -198,67 +193,25 @@ public struct CallInstallationReceipt: Codable, Sendable, Equatable {
     }
 }
 
-/// A small extension-only payload with no call arrays or reputation assessments.
-public struct SMSSnapshot: Codable, Sendable, Equatable {
-    public var metadata: GenerationMetadata
-    public var decisions: [SMSDecisionEntry]
-    public init(metadata: GenerationMetadata, decisions: [SMSDecisionEntry]) {
-        self.metadata = metadata; self.decisions = decisions
-    }
-    public func smsAction(for rawIdentifier: String, now: Date = Date()) -> SMSDecisionAction? {
-        guard let key = try? PhoneNormalizer.smsIdentifier(rawIdentifier) else { return nil }
-        var low = 0; var high = decisions.count
-        while low < high {
-            let middle = low + (high - low) / 2
-            if decisions[middle].identifier < key { low = middle + 1 } else { high = middle }
-        }
-        guard low < decisions.count, decisions[low].identifier == key,
-              decisions[low].expiresAt.map({ $0 > now }) ?? true else { return nil }
-        return decisions[low].action
-    }
-    public func validate() throws {
-        guard metadata.schemaVersion == 1 else { throw SpamHoleCoreError.unsupportedSchema }
-        guard metadata.smsDecisionCount == decisions.count,
-              zip(decisions, decisions.dropFirst()).allSatisfy({ $0.identifier < $1.identifier }),
-              decisions.allSatisfy({ (try? PhoneNormalizer.smsIdentifier($0.identifier)) == $0.identifier }) else {
-            throw SpamHoleCoreError.invalidSnapshot("Invalid SMS decision index")
-        }
-    }
-}
-
 public struct ProtectionSnapshot: Codable, Sendable, Equatable {
     public var metadata: GenerationMetadata
     public var callIdentification: [CallIdentificationEntry]
     public var callBlocking: [Int64]
-    public var smsDecisions: [SMSDecisionEntry]
     public var assessments: [ReputationAssessment]
     public init(metadata: GenerationMetadata, callIdentification: [CallIdentificationEntry], callBlocking: [Int64],
-                smsDecisions: [SMSDecisionEntry], assessments: [ReputationAssessment] = []) {
+                assessments: [ReputationAssessment] = []) {
         self.metadata = metadata; self.callIdentification = callIdentification; self.callBlocking = callBlocking
-        self.smsDecisions = smsDecisions; self.assessments = assessments
-    }
-    public func smsAction(for rawIdentifier: String, now: Date = Date()) -> SMSDecisionAction? {
-        guard let key = try? PhoneNormalizer.smsIdentifier(rawIdentifier) else { return nil }
-        var low = 0; var high = smsDecisions.count
-        while low < high {
-            let middle = low + (high - low) / 2
-            if smsDecisions[middle].identifier < key { low = middle + 1 } else { high = middle }
-        }
-        guard low < smsDecisions.count, smsDecisions[low].identifier == key else { return nil }
-        let decision = smsDecisions[low]
-        guard decision.expiresAt.map({ $0 > now }) ?? true else { return nil }
-        return decision.action
+        self.assessments = assessments
     }
     public func validate() throws {
         guard metadata.schemaVersion == 1 else { throw SpamHoleCoreError.unsupportedSchema }
         guard metadata.callIdentificationCount == callIdentification.count,
-              metadata.callBlockCount == callBlocking.count, metadata.smsDecisionCount == smsDecisions.count else {
+              metadata.callBlockCount == callBlocking.count else {
             throw SpamHoleCoreError.invalidSnapshot("Entry counts disagree with metadata")
         }
         let identified = callIdentification.map(\.number)
         guard zip(identified, identified.dropFirst()).allSatisfy({ $0 < $1 }),
               zip(callBlocking, callBlocking.dropFirst()).allSatisfy({ $0 < $1 }),
-              zip(smsDecisions, smsDecisions.dropFirst()).allSatisfy({ $0.identifier < $1.identifier }),
               identified.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }),
               callBlocking.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }),
               Set(identified).isDisjoint(with: callBlocking),
@@ -266,21 +219,18 @@ public struct ProtectionSnapshot: Codable, Sendable, Equatable {
                   && !$0.label.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) else {
             throw SpamHoleCoreError.invalidSnapshot("Entries must be valid, sorted, unique and disjoint")
         }
-        guard smsDecisions.allSatisfy({ (try? PhoneNormalizer.smsIdentifier($0.identifier)) == $0.identifier }) else {
-            throw SpamHoleCoreError.invalidSnapshot("Noncanonical SMS sender")
-        }
+
     }
 }
 
 public enum SpamHoleCoreError: Error, LocalizedError, Equatable {
-    case invalidValue(String), invalidPhoneNumber, unsupportedPhoneRegion, invalidSenderIdentifier
+    case invalidValue(String), invalidPhoneNumber, unsupportedPhoneRegion
     case unsupportedSchema, invalidSnapshot(String), snapshotUnavailable
     public var errorDescription: String? {
         switch self {
         case .invalidValue(let value), .invalidSnapshot(let value): value
         case .invalidPhoneNumber: "Enter a complete valid phone number; ranges and prefixes are not supported."
         case .unsupportedPhoneRegion: "This number's country is not supported by the bundled metadata."
-        case .invalidSenderIdentifier: "Enter an exact telephone number, 5–6 digit short code, or alphanumeric sender."
         case .unsupportedSchema: "The snapshot format is not supported."
         case .snapshotUnavailable: "No valid protection snapshot is available."
         }

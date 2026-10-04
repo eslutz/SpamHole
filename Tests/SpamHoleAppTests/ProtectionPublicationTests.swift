@@ -16,19 +16,35 @@ final class ProtectionPublicationTests: XCTestCase {
 
     func testRulesReplaceGenerationAndRetainCoherentLookup() async throws {
         let model = try model()
-        try await model.saveRule(raw: "54321", channel: .sms, action: .block)
+        try await model.saveRule(raw: "2025550123", action: .block)
         let first = try XCTUnwrap(model.snapshot)
-        XCTAssertEqual(first.smsAction(for: "54321"), .junk)
-        try await model.saveRule(raw: "54321", channel: .sms, action: .allow)
+        XCTAssertEqual(first.callBlocking, [1_202_555_0123])
+        try await model.saveRule(raw: "2025550123", action: .allow)
         XCTAssertNotEqual(model.snapshot?.metadata.id, first.metadata.id)
-        XCTAssertEqual(model.snapshot?.smsAction(for: "54321"), .allow)
+        XCTAssertEqual(model.snapshot?.callBlocking, [])
+        XCTAssertEqual(model.rules.first?.action, .allow)
         XCTAssertEqual(model.assessmentCount, model.snapshot?.assessments.count)
         XCTAssertNil(model.assessment(for: "missing"))
     }
 
+    func testInvalidPhoneRulePreservesPersonalRulesAndGeneration() async throws {
+        let model = try model()
+        try await model.saveRule(raw: "2025550123", action: .block)
+        let previousRules = model.rules
+        let previousSnapshot = model.snapshot
+        for invalid in ["54321", "BANK", "202*"] {
+            do {
+                try await model.saveRule(raw: invalid, action: .allow)
+                XCTFail("Incomplete or non-phone input must not become a call rule")
+            } catch { }
+            XCTAssertEqual(model.rules, previousRules)
+            XCTAssertEqual(model.snapshot, previousSnapshot)
+        }
+    }
+
     func testCancelledRebuildPreservesLastGoodGeneration() async throws {
         let model = try model()
-        try await model.saveRule(raw: "54321", channel: .sms, action: .allow)
+        try await model.saveRule(raw: "2025550123", action: .allow)
         let before = model.snapshot
         let task = Task { @MainActor in await model.rebuild() }
         task.cancel()
@@ -40,7 +56,7 @@ final class ProtectionPublicationTests: XCTestCase {
 
     func testFailedPublicationPreservesLastGoodGeneration() async throws {
         let model = try model()
-        try await model.saveRule(raw: "54321", channel: .sms, action: .allow)
+        try await model.saveRule(raw: "2025550123", action: .allow)
         let before = model.snapshot
         // Replace only this test's generation directory with a file to force a write failure.
         let directory = model.files.rootURL.appendingPathComponent("generations")

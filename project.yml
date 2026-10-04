@@ -44,8 +44,6 @@ targets:
       - package: SpamHoleCore
       - target: CallDirectory
         embed: true
-      - target: MessageFilter
-        embed: true
   CallDirectory:
     type: app-extension
     platform: iOS
@@ -65,25 +63,6 @@ targets:
     dependencies:
       - package: SpamHoleCore
       - sdk: CallKit.framework
-  MessageFilter:
-    type: app-extension
-    platform: iOS
-    sources:
-      - path: Extensions/MessageFilter
-      - path: Configuration/Extensions/PrivacyInfo.xcprivacy
-        buildPhase: resources
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).MessageFilter
-        TARGETED_DEVICE_FAMILY: "1"
-        INFOPLIST_FILE: Configuration/MessageFilter/Info.plist
-        CODE_SIGN_ENTITLEMENTS: Configuration/SpamHole.entitlements
-        GENERATE_INFOPLIST_FILE: NO
-        APPLICATION_EXTENSION_API_ONLY: YES
-        SKIP_INSTALL: YES
-    dependencies:
-      - package: SpamHoleCore
-      - sdk: IdentityLookup.framework
   SpamHoleUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -136,7 +115,7 @@ schemes:
       targets:
         - SpamHoleCoreTests
         - name: SpamHoleAppTests
-          selectedTests: [ProtectionPublicationTests]
+          selectedTests: [ProtectionPublicationTests, RuleBackupTests]
         - name: SpamHoleUITests
           selectedTests: [SpamHoleUITests]
     archive:

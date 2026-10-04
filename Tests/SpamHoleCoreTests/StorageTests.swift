@@ -51,7 +51,7 @@ final class StorageTests: XCTestCase {
     }
     func testRulesSettingsAndSchemaSurviveReopening() throws {
         try withStore { store, url in
-            let rule = PersonalRule(identifier: "+12025550100", channel: .both, action: .allow)
+            let rule = PersonalRule(identifier: "+12025550100", channel: .call, action: .allow)
             try store.saveRule(rule); try store.setSetting(AppSettings(policy: .conservative), forKey: "app-settings")
             let reopened = try EvidenceStore(url: url)
             XCTAssertEqual(try reopened.rules(), [rule])
@@ -67,8 +67,8 @@ final class StorageTests: XCTestCase {
             XCTAssertThrowsError(try store.replaceRules([invalid]))
             XCTAssertEqual(try store.rules(), [old])
             XCTAssertThrowsError(try store.replaceRules([old, old]))
-            try store.replaceRules([PersonalRule(identifier: "BANK", channel: .sms, action: .block)])
-            XCTAssertEqual(try store.rules().first?.identifier, "BANK")
+            try store.replaceRules([PersonalRule(identifier: "+14255550100", action: .block)])
+            XCTAssertEqual(try store.rules().first?.identifier, "+14255550100")
         }
     }
     func testPersistedCustomTrustCannotBecomeReviewedSource() throws {

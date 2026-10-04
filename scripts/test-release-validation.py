@@ -20,8 +20,7 @@ class ReleaseValidationTests(unittest.TestCase):
         self.app = Path(self.directory.name) / "Synthetic.app"
         self.identifier = "org.example.Synthetic"
         self.group = "group.org.example.Shared"
-        for name, point in [(None, None), ("CallDirectory", "com.apple.callkit.call-directory"),
-                            ("MessageFilter", "com.apple.identitylookup.message-filter")]:
+        for name, point in [(None, None), ("CallDirectory", "com.apple.callkit.call-directory")]:
             bundle = self.app if name is None else self.app / "PlugIns" / (name + ".appex")
             bundle.mkdir(parents=True)
             info = {"CFBundleIdentifier": self.identifier + ("." + name if name else ""),
@@ -61,7 +60,7 @@ class ReleaseValidationTests(unittest.TestCase):
         self.assertEqual(self.check(), self.identifier)
 
     def testMismatchedExtensionGroupRejected(self):
-        self.change_info("MessageFilter", lambda info: info.update(SpamHoleAppGroupIdentifier="group.org.example.Other"))
+        self.change_info("CallDirectory", lambda info: info.update(SpamHoleAppGroupIdentifier="group.org.example.Other"))
         with self.assertRaisesRegex(validator.ValidationError, "App Group configuration mismatch"):
             self.check()
 
@@ -71,14 +70,13 @@ class ReleaseValidationTests(unittest.TestCase):
             self.check()
 
     def testMissingManifestRejected(self):
-        (self.app / "PlugIns" / "MessageFilter.appex" / "PrivacyInfo.xcprivacy").unlink()
+        (self.app / "PlugIns" / "CallDirectory.appex" / "PrivacyInfo.xcprivacy").unlink()
         with self.assertRaisesRegex(validator.ValidationError, "Cannot read PrivacyInfo"):
             self.check()
 
-    def testNetworkSMSConfigurationRejected(self):
-        self.change_info("MessageFilter", lambda info: info["NSExtension"].update(
-            NSExtensionAttributes={"ILMessageFilterExtensionNetworkURL": "https://example.com/query"}))
-        with self.assertRaisesRegex(validator.ValidationError, "network service"):
+    def testRemovedMessageFilterExtensionRejected(self):
+        (self.app / "PlugIns" / "MessageFilter.appex").mkdir()
+        with self.assertRaisesRegex(validator.ValidationError, "only the Call Directory"):
             self.check()
 
     def testVersionDriftRejected(self):
@@ -100,7 +98,7 @@ class ReleaseValidationTests(unittest.TestCase):
             self.check()
 
     def testExtensionFamilyDriftRejected(self):
-        self.change_info("MessageFilter", lambda info: info.update(UIDeviceFamily=[2]))
+        self.change_info("CallDirectory", lambda info: info.update(UIDeviceFamily=[2]))
         with self.assertRaisesRegex(validator.ValidationError, "iPhone only"):
             self.check()
 

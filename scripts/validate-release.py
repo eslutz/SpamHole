@@ -120,10 +120,9 @@ def validate(app, require_signing=False, check_binary=True):
     require(bool(info.get("CFBundleIcons")), "Missing compiled app icon declaration")
     expected = {
         "CallDirectory": "com.apple.callkit.call-directory",
-        "MessageFilter": "com.apple.identitylookup.message-filter",
     }
     plugins = list((app / "PlugIns").glob("*.appex"))
-    require({p.stem for p in plugins} == set(expected), "Expected exactly two protection extensions")
+    require({p.stem for p in plugins} == set(expected), "Expected only the Call Directory extension")
     team = None
     for bundle in [app] + sorted(plugins):
         settings = read_plist(bundle / "Info.plist")
@@ -155,9 +154,6 @@ def validate(app, require_signing=False, check_binary=True):
             require(extension.get("NSExtensionPointIdentifier") == expected[bundle.stem],
                     "Extension point mismatch")
             require(bool(extension.get("NSExtensionPrincipalClass")), "Missing extension principal class")
-            if bundle.stem == "MessageFilter":
-                require("ILMessageFilterExtensionNetworkURL" not in extension.get("NSExtensionAttributes", {}),
-                        "SMS filtering must not defer sender data to a network service")
         if require_signing:
             team = check_signature(bundle, settings, group, team)
     return identifier

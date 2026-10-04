@@ -20,7 +20,8 @@ The directly fetched CSV has SHA-256 `d384b7f742083ec053359f7a8a7cdc48168c238350
 
 ## Rights and authority
 
-The [FTC dataset page](https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data) expressly identifies these as unverified consumer reports and publishes them for industry call-blocking use. The [FTC website policy](https://www.ftc.gov/policy-notices/website-policy) says most FTC material is U.S. government work in the public domain, asks for attribution where feasible, and prohibits implying FTC endorsement. It also notes that separately copyrighted third-party material may exist on the site. Preserve dataset attribution and the current unverified call-evidence classification. These observations establish no confirmation or SMS Junk authority.
+The [FTC dataset page](https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data) expressly identifies these as unverified consumer reports and publishes them for industry call-blocking use. The [FTC website policy](https://www.ftc.gov/policy-notices/website-policy) says most FTC material is U.S. government work in the public domain, asks for attribution where feasible, and prohibits implying FTC endorsement. It also notes that separately copyrighted third-party material may exist on the site. Preserve dataset attribution and the current unverified call-evidence classification. These observations establish no confirmation or automatic call-blocking authority.
+SpamHole is now call-only; the earlier SMS scope was retired on October 4, 2026.
 
 ## Implementation consequence and remaining acceptance
 

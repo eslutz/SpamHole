@@ -10,10 +10,11 @@ and UI tests. The separate `SpamHolePerformance` scheme uses synthetic isolated
 fixtures; see [profiling](docs/performance/offline-profiling.md).
 
 Keep changes focused and add regression coverage for behavioral changes. Use
-synthetic identifiers and temporary stores. Never attach actual contact/message
+synthetic telephone numbers and temporary stores. Never attach actual contact/message
 records, source tokens, signed artifacts or private device logs to issues/PRs.
 Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
-Preserve sender-only SMS processing, offline incoming-number matching, fail-open
-SMS behavior, explicit user-rule precedence and reviewed source authority. Code
+Preserve offline incoming-number matching, explicit user-rule precedence and
+reviewed source authority. The product is call-only: do not add message access
+or message-filtering behavior. Code
 licensing does not qualify upstream data; document dataset rights separately.

@@ -11,18 +11,19 @@ public struct SnapshotBuilder: Sendable {
                       settings: AppSettings, protectedContacts: Set<String> = [], previous: ProtectionSnapshot? = nil,
                       now: Date = Date()) throws -> ProtectionSnapshot {
         guard now.timeIntervalSince1970.isFinite else { throw SpamHoleCoreError.invalidValue("Invalid rebuild date") }
+        for source in sources { try SourceCatalog.validateCallSource(source) }
+        guard rules.allSatisfy({ $0.channel == .call }), evidence.allSatisfy({ $0.channel == .call }) else {
+            throw SourceImportError.invalidSchema("Only call rules and evidence are supported.")
+        }
         let sourceMap = Dictionary(sources.filter(\.enabled).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        let normalizedRules = rules.compactMap { rule -> PersonalRule? in
+        let normalizedRules = try rules.map { rule -> PersonalRule in
             var result = rule
-            guard let identifier = try? PhoneNormalizer.smsIdentifier(rule.identifier) else { return nil }
-            result.identifier = identifier
+            result.identifier = try PhoneNormalizer.callNumber(rule.identifier)
             return result
         }
-        let contacts = settings.contactProtection ? Set(protectedContacts.compactMap { try? PhoneNormalizer.smsIdentifier($0) }) : []
-        let allowCalls = Set(normalizedRules.filter { $0.action == .allow && $0.channel.includes(.call) }.map(\.identifier))
-        let allowSMS = Set(normalizedRules.filter { $0.action == .allow && $0.channel.includes(.sms) }.map(\.identifier))
-        let blockCalls = Set(normalizedRules.filter { $0.action == .block && $0.channel.includes(.call) }.map(\.identifier)).subtracting(allowCalls)
-        let blockSMS = Set(normalizedRules.filter { $0.action == .block && $0.channel.includes(.sms) }.map(\.identifier)).subtracting(allowSMS)
+        let contacts = settings.contactProtection ? Set(protectedContacts.compactMap { try? PhoneNormalizer.callNumber($0) }) : []
+        let allowCalls = Set(normalizedRules.filter { $0.action == .allow }.map(\.identifier))
+        let blockCalls = Set(normalizedRules.filter { $0.action == .block }.map(\.identifier)).subtracting(allowCalls)
         let callBlocks = try blockCalls.compactMap { identifier -> Int64? in
             guard let normalized = try? PhoneNormalizer.callNumber(identifier) else { return nil }
             return try PhoneNormalizer.callDirectoryNumber(normalized)
@@ -30,18 +31,12 @@ public struct SnapshotBuilder: Sendable {
         guard callBlocks.count <= maxBlockingEntries else {
             throw SpamHoleCoreError.invalidSnapshot("Personal call blocks exceed the selected device capacity; reduce rules before rebuilding")
         }
-        var smsMap: [String: SMSDecisionEntry] = [:]
-        for identifier in contacts.union(allowSMS) {
-            smsMap[identifier] = .init(identifier: identifier, action: .allow, reason: allowSMS.contains(identifier) ? "Personal allow rule" : "Protected contact")
-        }
-        for identifier in blockSMS { smsMap[identifier] = .init(identifier: identifier, action: .junk, reason: "Personal Junk rule") }
-
         // Apply assignment boundaries before scoring; a revoked confirmation cannot survive a rebuild.
         var boundaries: [String: Date] = [:]
         for record in evidence {
             if let boundary = record.assignmentBoundaryAt, boundary <= now,
                sourceMap[record.sourceID]?.reviewedTrust?.confirmationAuthority == true,
-               let identifier = try? PhoneNormalizer.smsIdentifier(record.numberE164) {
+               let identifier = try? PhoneNormalizer.callNumber(record.numberE164) {
                 boundaries[identifier] = max(boundaries[identifier] ?? .distantPast, boundary)
             }
         }
@@ -49,12 +44,11 @@ public struct SnapshotBuilder: Sendable {
         var seen: Set<String> = []
         for original in evidence {
             guard let source = sourceMap[original.sourceID], original.numberRole == .displayedSender,
-                  original.channel != .both, source.channels.contains(where: { $0.includes(original.channel) }),
+                  original.channel == .call, source.channels == [.call],
                   original.retractedAt == nil,
                   original.reportedAt <= now, original.publisherWatermark <= now,
                   original.observedAt.map({ $0 <= now }) ?? true,
-                  let identifier = try? PhoneNormalizer.smsIdentifier(original.numberE164) else { continue }
-            if original.channel == .call, (try? PhoneNormalizer.callNumber(identifier)) == nil { continue }
+                  let identifier = try? PhoneNormalizer.callNumber(original.numberE164) else { continue }
             let effectiveDate = original.observedAt ?? original.reportedAt
             if let boundary = boundaries[identifier], effectiveDate < boundary { continue }
             let dedupKey = source.sourceFamilyID + "\u{1F}" + original.id + "\u{1F}" + original.channel.rawValue
@@ -109,31 +103,15 @@ public struct SnapshotBuilder: Sendable {
                     }
                 }
             }
-            if smsMap[identifier] == nil {
-                let confirmed = records.filter { record in
-                    record.channel == .sms && approvedConfirmation(record, sources: sourceMap, now: now, sms: true)
-                        && record.positivePenalty == 0 && record.uncertaintyPenalty == 0
-                }
-                // Contradictory wanted/spoof evidence vetoes source-based Junk, even from a different SMS source.
-                let conflict = records.contains {
-                    $0.channel == .sms && sourceMap[$0.sourceID]?.reviewedTrust != nil
-                        && ($0.positivePenalty > 0 || $0.uncertaintyPenalty > 0)
-                }
-                if !conflict, let best = confirmed.max(by: { ($0.confirmationReviewedAt ?? .distantPast) < ($1.confirmationReviewedAt ?? .distantPast) }),
-                   let reviewed = best.confirmationReviewedAt, let expires = best.confirmationExpiresAt {
-                    let validity = min(expires, reviewed.addingTimeInterval(7 * 86_400), best.publisherWatermark.addingTimeInterval(14 * 86_400))
-                    if validity > now { smsMap[identifier] = .init(identifier: identifier, action: .junk, expiresAt: validity, reason: "Approved current SMS sender confirmation") }
-                }
-            }
+
         }
         let identification = identificationCandidates.sorted {
             $0.2 == $1.2 ? $0.0 < $1.0 : $0.2 > $1.2
         }.prefix(maxIdentificationEntries).map { CallIdentificationEntry(number: $0.0, label: $0.1) }.sorted { $0.number < $1.number }
-        let smsDecisions = smsMap.values.sorted { $0.identifier < $1.identifier }
         let metadata = GenerationMetadata(createdAt: now, callIdentificationCount: identification.count,
-            callBlockCount: callBlocks.count, smsDecisionCount: smsDecisions.count, policy: settings.policy)
+            callBlockCount: callBlocks.count, policy: settings.policy)
         let snapshot = ProtectionSnapshot(metadata: metadata, callIdentification: identification, callBlocking: callBlocks,
-                                          smsDecisions: smsDecisions, assessments: assessments)
+                                          assessments: assessments)
         try snapshot.validate()
         return snapshot
     }
@@ -145,9 +123,9 @@ public struct SnapshotBuilder: Sendable {
         for character in cleaned { if (output + String(character)).utf8.count > 128 { break }; output.append(character) }
         return output.isEmpty ? "Listed by subscription" : output
     }
-    private func approvedConfirmation(_ record: EvidenceRecord, sources: [String: SourceDefinition], now: Date, sms: Bool) -> Bool {
+    private func approvedConfirmation(_ record: EvidenceRecord, sources: [String: SourceDefinition], now: Date) -> Bool {
         guard let trust = sources[record.sourceID]?.reviewedTrust, trust.confirmationAuthority,
-              !sms || trust.smsJunkAuthority, [0.8, 1].contains(record.confirmationGrade),
+              [0.8, 1].contains(record.confirmationGrade),
               record.confirmationGrade <= trust.maximumConfirmationGrade,
               let method = record.confirmationMethod, trust.allowedConfirmationMethods.contains(method),
               let reviewed = record.confirmationReviewedAt, reviewed <= now, days(since: reviewed, now: now) <= 7,
@@ -176,7 +154,7 @@ public struct SnapshotBuilder: Sendable {
             families.append(try ReputationEngine.familyContribution(dailyWeightedCounts: counts, weight: weight,
                 freshness: ReputationEngine.sourceFreshness(watermarkAgeDays: days(since: watermark, now: now))))
         }
-        let confirmed = records.filter { approvedConfirmation($0, sources: sources, now: now, sms: false) }
+        let confirmed = records.filter { approvedConfirmation($0, sources: sources, now: now) }
         let best = confirmed.max { lhs, rhs in
             let left = lhs.confirmationGrade * pow(2, -days(since: lhs.confirmationReviewedAt!, now: now) / 14)
             let right = rhs.confirmationGrade * pow(2, -days(since: rhs.confirmationReviewedAt!, now: now) / 14)

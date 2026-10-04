@@ -83,6 +83,7 @@ public actor SourceDownloader {
     /// Refreshes an existing enabled subscription. Registration and user changes belong to the app;
     /// a stale queued request cannot recreate a removed subscription or reenable a disabled one.
     public func refresh(source: SourceDefinition, now: Date = Date(), headers: [String: String] = [:]) async throws -> SourceRefreshResult {
+        try SourceCatalog.validateCallSource(source)
         let requested = SourceCatalog.canonicalize(source)
         try SourceCatalog.validateURL(requested.url)
         try Task.checkCancellation()
@@ -126,27 +127,7 @@ public actor SourceDownloader {
                 parsed = ParsedSourceImport(records: unique.values.sorted { $0.id < $1.id }, publisherWatermark: coverage, rejectedRecordCount: rejected)
                 lastResponse = landing
             case .fccJSON:
-                var components = URLComponents(url: canonical.url, resolvingAgainstBaseURL: false)!
-                let formatter = DateFormatter(); formatter.dateFormat = "yyyy-MM-dd"; formatter.timeZone = TimeZone(secondsFromGMT: 0)
-                let since = formatter.string(from: now.addingTimeInterval(-90 * 86400))
-                var objects: [[String: Any]] = []; var offset = 0; var bytes = 0; var finalResponse: SourceHTTPResponse?
-                repeat {
-                    components.queryItems = [URLQueryItem(name: "$where", value: "type_of_call_or_messge='Text Message' AND issue_date IS NOT NULL AND issue_date >= '\(since)'"),
-                                             URLQueryItem(name: "$order", value: "issue_date DESC, id ASC"),
-                                             URLQueryItem(name: "$limit", value: "50000"), URLQueryItem(name: "$offset", value: String(offset))]
-                    let response = try await fetch(components.url!, headers: headers, maximumBytes: 32 * 1024 * 1024)
-                    finalResponse = response; bytes += response.data.count
-                    guard bytes <= 64 * 1024 * 1024,
-                          let page = try JSONSerialization.jsonObject(with: response.data) as? [[String: Any]] else {
-                        throw SourceImportError.invalidSchema("FCC response is not a bounded JSON array.")
-                    }
-                    objects.append(contentsOf: page)
-                    guard objects.count <= SourceAdapters.maximumRecords else { throw SourceImportError.tooManyRecords }
-                    if page.count < 50000 { break }; offset += page.count
-                } while offset < SourceAdapters.maximumRecords
-                guard offset < SourceAdapters.maximumRecords else { throw SourceImportError.tooManyRecords }
-                parsed = try SourceAdapters.parse(data: JSONSerialization.data(withJSONObject: objects), source: canonical, now: now)
-                lastResponse = finalResponse!
+                throw SourceImportError.invalidSchema("The retired text-complaint format is unsupported.")
             default:
                 var conditionalHeaders = headers
                 if let etag = previous.etag { conditionalHeaders["If-None-Match"] = etag }

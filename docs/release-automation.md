@@ -19,11 +19,11 @@ python3 -B scripts/validate-release.py --archive /path/to/SpamHole.xcarchive
 python3 -B scripts/validate-release.py --app /path/to/SpamHole.app
 ```
 
-The validator checks the containing app and exactly two extensions: expanded
+The validator checks the containing app and exactly one Call Directory extension: expanded
 custom identifiers, shared group configuration, versions, executable presence,
 device arm64 architecture, extension points, icon declaration, Contacts purpose,
-background identifiers, bundled privacy manifests and absence of SMS network
-deferral. It rejects tracking and unreviewed data collection declarations. This
+background identifiers and bundled privacy manifests. It rejects unexpected
+extension bundles or extension points. It rejects tracking and unreviewed data collection declarations. This
 is a consistency check, not a full required-reason API or privacy audit.
 
 For an App Store archive signed using your ignored local configuration:
@@ -49,5 +49,5 @@ support uses GitHub issues; security vulnerabilities use private reporting.
 
 Physical cellular callbacks, VoiceOver behavior, Contacts permissions and device
 performance remain pending a connected phone. No user-led checklist is required.
-The reviewed automatic-SMS-feed requirement and final submission review remain
-separate gates.
+Final submission review and signed distribution remain separate gates. The
+call-only product has no SMS-feed requirement or message access.

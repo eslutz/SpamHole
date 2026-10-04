@@ -8,7 +8,7 @@ struct SourcesView: View {
     var body: some View {
         List {
             Section {
-                Text("Subscriptions are downloaded directly from publishers. Unknown feeds can identify callers, but cannot authorize call blocking or SMS Junk decisions.")
+                Text("Subscriptions are downloaded directly from publishers. Unknown feeds can identify callers, but cannot authorize call blocking.")
                     .font(.subheadline).foregroundStyle(Color("SecondaryText"))
             }
             ReadableSection("Subscriptions") {
@@ -35,11 +35,7 @@ struct SourcesView: View {
                     }
                 }
             }
-            ReadableSection("SMS feed requirement") {
-                Label("Awaiting vetted free/open data", systemImage: "message.badge")
-                Text("FCC text-message complaints are an investigation candidate. Complaint counts alone cannot prove a sender is safe to filter.")
-                    .font(.footnote).foregroundStyle(Color("SecondaryText"))
-            }
+
         }
         .navigationTitle("Sources")
         .toolbar {
@@ -77,7 +73,7 @@ struct SourceDetailView: View {
                     if let error = state?.error { Text(error).foregroundStyle(Color("WarningText")) }
                 }
                 ReadableSection("Authority") {
-                    Text("Identification evidence only. This source does not authorize automatic blocking or SMS filtering.")
+                    Text("Identification evidence only. This source does not authorize automatic blocking.")
                     Text("Refreshing an unchanged list does not make its allegations new. Mirrors do not add independent corroboration.")
                         .font(.footnote).foregroundStyle(Color("SecondaryText"))
                 }
@@ -101,7 +97,6 @@ struct AddSourceView: View {
     @State private var url = ""
     @State private var token = ""
     @State private var format: SourceFormat = .evidenceJSON
-    @State private var channel: CommunicationChannel = .call
     @State private var error: String?
     @State private var saving = false
 
@@ -118,23 +113,10 @@ struct AddSourceView: View {
                         Text("Format").font(.headline)
                         AccessibleChoice(title: "Evidence JSON v1", selected: format == .evidenceJSON, identifier: "source.format.json") { format = .evidenceJSON }
                         AccessibleChoice(title: "Plain phone-number list", selected: format == .identificationCSV, identifier: "source.format.csv") { format = .identificationCSV }
-                        if format == .evidenceJSON {
-                            Text("Evidence channel").font(.headline)
-                            ForEach(CommunicationChannel.allCases, id: \.self) { value in
-                                AccessibleChoice(title: value.displayName, selected: channel == value, identifier: "source.channel.\(value.rawValue)") { channel = value }
-                            }
-                        }
                     } else {
                         Picker("Format", selection: $format) {
                             Text("Evidence JSON v1").tag(SourceFormat.evidenceJSON)
                             Text("Plain phone-number list").tag(SourceFormat.identificationCSV)
-                        }
-                        if format == .evidenceJSON {
-                            Picker("Evidence channel", selection: $channel) {
-                                Text("Calls").tag(CommunicationChannel.call)
-                                Text("SMS").tag(CommunicationChannel.sms)
-                                Text("Calls & SMS").tag(CommunicationChannel.both)
-                            }
                         }
                     }
                     Text("Bearer token (optional)").font(.body)
@@ -156,7 +138,7 @@ struct AddSourceView: View {
                     Button("Add") {
                         saving = true
                         Task {
-                            do { try await model.addSource(name: name, url: url, format: format, channel: channel, token: token); dismiss() }
+                            do { try await model.addSource(name: name, url: url, format: format, token: token); dismiss() }
                             catch { self.error = error.localizedDescription }
                             saving = false
                         }

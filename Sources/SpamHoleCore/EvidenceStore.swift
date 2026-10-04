@@ -31,7 +31,7 @@ public final class EvidenceStore: @unchecked Sendable {
             try execute("PRAGMA foreign_keys=ON")
             try execute("PRAGMA busy_timeout=5000")
             let version = try query("PRAGMA user_version").first.flatMap { $0.first }.flatMap(Int.init) ?? 0
-            guard version <= 1 else { throw SpamHoleCoreError.unsupportedSchema }
+            guard version <= 2 else { throw SpamHoleCoreError.unsupportedSchema }
             if version == 0 {
                 try transaction {
                     try execute("CREATE TABLE sources (id TEXT PRIMARY KEY, enabled INTEGER NOT NULL, payload BLOB NOT NULL)")
@@ -42,19 +42,26 @@ public final class EvidenceStore: @unchecked Sendable {
                     try execute("CREATE TABLE rules (id TEXT PRIMARY KEY, payload BLOB NOT NULL)")
                     try execute("CREATE TABLE settings (key TEXT PRIMARY KEY, payload BLOB NOT NULL)")
                     try execute("CREATE TABLE generations (id TEXT PRIMARY KEY, installed INTEGER NOT NULL DEFAULT 0, payload BLOB NOT NULL)")
-                    try execute("PRAGMA user_version=1")
+                    try execute("CREATE TABLE legacy_channel_data (kind TEXT NOT NULL, original_key TEXT NOT NULL, payload BLOB NOT NULL, PRIMARY KEY(kind,original_key))")
+                    try execute("PRAGMA user_version=2")
                 }
+            } else if version == 1 {
+                try migrateLegacyChannels()
             }
         } catch { if let database { sqlite3_close(database) }; database = nil; throw error }
     }
     deinit { if let database { sqlite3_close(database) } }
 
     public func sources() throws -> [SourceDefinition] {
-        try locked { try decodeRows("SELECT payload FROM sources ORDER BY id", as: SourceDefinition.self).map(SourceCatalog.canonicalize) }
+        try locked {
+            try decodeRows("SELECT payload FROM sources ORDER BY id", as: SourceDefinition.self)
+                .filter { $0.channels == [.call] && $0.format != .fccJSON }.map(SourceCatalog.canonicalize)
+        }
     }
     public func saveSource(_ source: SourceDefinition) throws {
         try locked {
             try SourceCatalog.validateURL(source.url)
+            try SourceCatalog.validateCallSource(source)
             let canonical = SourceCatalog.canonicalize(source)
             try execute("INSERT INTO sources(id,enabled,payload) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled,payload=excluded.payload",
                         [.text(canonical.id), .integer(canonical.enabled ? 1 : 0), .blob(try encoder.encode(canonical))])
@@ -81,6 +88,7 @@ public final class EvidenceStore: @unchecked Sendable {
     public func replaceEvidence(_ records: [EvidenceRecord], source: SourceDefinition, state: SourceState,
                                 requireCurrentSource: Bool = false) throws {
         try locked {
+            try SourceCatalog.validateCallSource(source)
             guard records.count <= SourceAdapters.maximumRecords, state.sourceID == source.id else {
                 throw SourceImportError.invalidSchema("Replacement source identity or count is invalid.")
             }
@@ -97,7 +105,8 @@ public final class EvidenceStore: @unchecked Sendable {
                 try saveSource(canonical)
                 try execute("DELETE FROM evidence WHERE source_id=?", [.text(source.id)])
                 for original in records {
-                    guard original.sourceID == source.id, !original.id.isEmpty,
+                    guard original.sourceID == source.id, !original.id.isEmpty, original.channel == .call,
+                          (try? PhoneNormalizer.callNumber(original.numberE164)) == original.numberE164,
                           original.positivePenalty.isFinite, (0...1).contains(original.positivePenalty),
                           original.uncertaintyPenalty.isFinite, (0...1).contains(original.uncertaintyPenalty),
                           [0.0, 0.8, 1.0].contains(original.confirmationGrade) else {
@@ -126,7 +135,8 @@ public final class EvidenceStore: @unchecked Sendable {
                 + (enabledOnly ? " WHERE sources.enabled=1" : "") + " ORDER BY family_id,record_id,source_id"
             let records: [EvidenceRecord] = try decodeRows(sql, as: EvidenceRecord.self)
             var unique: [String: EvidenceRecord] = [:]
-            for record in records {
+            let activeSourceIDs = Set(try sources().map(\.id))
+            for record in records where record.channel == .call && activeSourceIDs.contains(record.sourceID) {
                 let key = "\(record.sourceFamilyID.utf8.count):\(record.sourceFamilyID)\(record.id)"
                 if let old = unique[key] {
                     if record.retractedAt != nil || (old.retractedAt == nil && record.publisherWatermark > old.publisherWatermark) { unique[key] = record }
@@ -148,7 +158,9 @@ public final class EvidenceStore: @unchecked Sendable {
             .sorted { ($0.sourceFamilyID, $0.identifier, $0.day) < ($1.sourceFamilyID, $1.identifier, $1.day) }
     }
 
-    public func rules() throws -> [PersonalRule] { try locked { try decodeRows("SELECT payload FROM rules ORDER BY id", as: PersonalRule.self) } }
+    public func rules() throws -> [PersonalRule] {
+        try locked { try decodeRows("SELECT payload FROM rules ORDER BY id", as: PersonalRule.self).filter { $0.channel == .call } }
+    }
     public func saveRule(_ rule: PersonalRule) throws {
         try locked {
             try validateRule(rule)
@@ -192,8 +204,82 @@ public final class EvidenceStore: @unchecked Sendable {
 
     private enum Binding { case text(String), integer(Int64), real(Double), blob(Data) }
     private func validateRule(_ rule: PersonalRule) throws {
-        let normalized = rule.channel == .sms ? try PhoneNormalizer.smsIdentifier(rule.identifier) : try PhoneNormalizer.e164(rule.identifier)
-        guard rule.identifier == normalized else { throw SpamHoleCoreError.invalidSenderIdentifier }
+        guard rule.channel == .call else { throw SourceImportError.invalidSchema("Only call rules are supported.") }
+        let normalized = try PhoneNormalizer.e164(rule.identifier)
+        guard rule.identifier == normalized else { throw SpamHoleCoreError.invalidPhoneNumber }
+    }
+
+    /// Version 1 compatibility is local and one-way: preserve original mixed/text payloads in
+    /// a dormant table, expose only valid call portions, and never reinterpret text evidence as calls.
+    /// Dormant rows have no public accessor, export, source refresh, or snapshot publication path.
+    private func migrateLegacyChannels() throws {
+        try transaction {
+            try execute("CREATE TABLE legacy_channel_data (kind TEXT NOT NULL, original_key TEXT NOT NULL, payload BLOB NOT NULL, PRIMARY KEY(kind,original_key))")
+            let oldSources = try decodeRows("SELECT payload FROM sources ORDER BY id", as: SourceDefinition.self)
+            let oldEvidence = try decodeRows("SELECT payload FROM evidence", as: EvidenceRecord.self)
+            let oldRules = try decodeRows("SELECT payload FROM rules", as: PersonalRule.self)
+            var retainedSourceIDs = Set<String>()
+            var remainingCounts: [String: Int] = [:]
+            for var source in oldSources {
+                let hasCallPortion = source.format != .fccJSON && source.channels.contains { $0 == .call || $0 == .both }
+                if source.channels != [.call] || !hasCallPortion {
+                    try execute("INSERT INTO legacy_channel_data(kind,original_key,payload) SELECT 'source',id,payload FROM sources WHERE id=?", [.text(source.id)])
+                    try execute("INSERT INTO legacy_channel_data(kind,original_key,payload) SELECT 'source-state',source_id,payload FROM source_states WHERE source_id=?", [.text(source.id)])
+                }
+                if hasCallPortion {
+                    retainedSourceIDs.insert(source.id)
+                    if source.channels != [.call] {
+                        source.channels = [.call]
+                        try execute("UPDATE sources SET payload=? WHERE id=?", [.blob(try encoder.encode(source)), .text(source.id)])
+                    }
+                }
+            }
+            for var record in oldEvidence {
+                let canonical = try? PhoneNormalizer.callNumber(record.numberE164)
+                let retain = retainedSourceIDs.contains(record.sourceID) && record.channel != .sms && canonical != nil
+                if !retain || record.channel != .call || canonical != record.numberE164 {
+                    let key = "\(record.sourceID.utf8.count):\(record.sourceID)\(record.id)"
+                    try execute("INSERT INTO legacy_channel_data(kind,original_key,payload) SELECT 'evidence',?,payload FROM evidence WHERE source_id=? AND record_id=?",
+                        [.text(key), .text(record.sourceID), .text(record.id)])
+                }
+                if retain, let canonical {
+                    remainingCounts[record.sourceID, default: 0] += 1
+                    if record.channel != .call || canonical != record.numberE164 {
+                        record.channel = .call; record.numberE164 = canonical
+                        try execute("UPDATE evidence SET identifier=?,payload=? WHERE source_id=? AND record_id=?",
+                            [.text(canonical), .blob(try encoder.encode(record)), .text(record.sourceID), .text(record.id)])
+                    }
+                } else {
+                    try execute("DELETE FROM evidence WHERE source_id=? AND record_id=?", [.text(record.sourceID), .text(record.id)])
+                }
+            }
+            for source in oldSources {
+                if !retainedSourceIDs.contains(source.id) {
+                    try execute("DELETE FROM sources WHERE id=?", [.text(source.id)])
+                } else if var state = try sourceState(id: source.id) {
+                    let count = remainingCounts[source.id] ?? 0
+                    if state.recordCount != count {
+                        try execute("INSERT OR IGNORE INTO legacy_channel_data(kind,original_key,payload) SELECT 'source-state',source_id,payload FROM source_states WHERE source_id=?", [.text(source.id)])
+                        state.recordCount = count
+                        try saveSourceState(state)
+                    }
+                }
+            }
+            for var rule in oldRules {
+                let canonical = try? PhoneNormalizer.callNumber(rule.identifier)
+                let retain = rule.channel != .sms && canonical != nil
+                if !retain || rule.channel != .call || canonical != rule.identifier {
+                    try execute("INSERT INTO legacy_channel_data(kind,original_key,payload) SELECT 'rule',id,payload FROM rules WHERE id=?", [.text(rule.id)])
+                }
+                if retain, let canonical {
+                    if rule.channel != .call || canonical != rule.identifier {
+                        rule.channel = .call; rule.identifier = canonical
+                        try writeRule(rule)
+                    }
+                } else { try execute("DELETE FROM rules WHERE id=?", [.text(rule.id)]) }
+            }
+            try execute("PRAGMA user_version=2")
+        }
     }
     private func validateRuleReplacement(_ rules: [PersonalRule]) throws {
         guard rules.count <= 100_000, Set(rules.map(\.id)).count == rules.count else {

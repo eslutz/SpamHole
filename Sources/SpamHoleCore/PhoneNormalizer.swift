@@ -1,12 +1,6 @@
 import Foundation
 
 public enum PhoneRegion: String, Codable, Sendable { case us, canada }
-public enum SenderIdentifierKind: String, Codable, Sendable { case telephone, shortCode, alphanumeric }
-public struct SenderIdentifier: Codable, Sendable, Equatable {
-    public var kind: SenderIdentifierKind
-    public var value: String
-}
-
 public enum PhoneNormalizer {
     /// Conservative bundled metadata: NANP plus fixed-length UK, AU, FR, JP and IN national numbers.
     /// This checks numbering structure, never current assignment or ownership.
@@ -55,26 +49,5 @@ public enum PhoneNormalizer {
         let canonical = try callNumber(raw)
         guard let number = Int64(canonical.dropFirst()) else { throw SpamHoleCoreError.invalidPhoneNumber }
         return number
-    }
-    public static func sender(_ raw: String, defaultRegion: PhoneRegion = .us) throws -> SenderIdentifier {
-        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let phone = try? callNumber(value, defaultRegion: defaultRegion) {
-            return SenderIdentifier(kind: .telephone, value: phone)
-        }
-        let asciiDigits = CharacterSet(charactersIn: "0123456789")
-        if (5...6).contains(value.count), value.unicodeScalars.allSatisfy(asciiDigits.contains) {
-            return SenderIdentifier(kind: .shortCode, value: value)
-        }
-        let alpha = value.uppercased()
-        let permitted = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ")
-        let letters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-        guard (1...11).contains(alpha.count), alpha.unicodeScalars.allSatisfy(permitted.contains),
-              alpha.unicodeScalars.contains(where: letters.contains) else {
-            throw SpamHoleCoreError.invalidSenderIdentifier
-        }
-        return SenderIdentifier(kind: .alphanumeric, value: alpha)
-    }
-    public static func smsIdentifier(_ raw: String, defaultRegion: PhoneRegion = .us) throws -> String {
-        try sender(raw, defaultRegion: defaultRegion).value
     }
 }

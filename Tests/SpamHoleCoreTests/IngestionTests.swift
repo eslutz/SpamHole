@@ -6,14 +6,14 @@ final class IngestionTests: XCTestCase, @unchecked Sendable {
     private let now = Date(timeIntervalSince1970: 1_791_072_000) // 2026-10-04 UTC
     private func custom(_ format: SourceFormat = .evidenceJSON) -> SourceDefinition {
         SourceDefinition(id: "custom", name: "Custom", url: URL(string: "https://example.org/feed")!,
-                         format: format, channels: [.both], sourceFamilyID: "pretend-independent",
-                         reviewedTrust: ReviewedSourceTrust(confirmationAuthority: true, smsJunkAuthority: true,
+                         format: format, channels: [.call], sourceFamilyID: "pretend-independent",
+                         reviewedTrust: ReviewedSourceTrust(confirmationAuthority: true,
                                                            allowedConfirmationMethods: ["self-claim"], maximumConfirmationGrade: 1))
     }
     private var json: Data {
         Data("""
         {"schemaVersion":1,"snapshot":true,"publisherWatermark":"2026-10-03T00:00:00Z","records":[
-        {"id":"a","identifier":"2025550100","channel":"sms","reportedAt":"2026-10-02T00:00:00Z",
+        {"id":"a","identifier":"2025550100","channel":"call","reportedAt":"2026-10-02T00:00:00Z",
         "confirmationGrade":1,"confirmationMethod":"self-claim","confirmationExpiresAt":"2026-10-05T00:00:00Z"}]}
         """.utf8)
     }
@@ -52,7 +52,7 @@ final class IngestionTests: XCTestCase, @unchecked Sendable {
                             json.replacing("\"confirmationGrade\":1", with: "\"confirmationGrade\":0.7")] {
             XCTAssertThrowsError(try SourceAdapters.parse(data: replacement, source: custom(), now: now))
         }
-        let duplicate = json.replacing("}]}", with: "},{\"id\":\"a\",\"identifier\":\"2025550101\",\"channel\":\"sms\",\"reportedAt\":\"2026-10-02T00:00:00Z\"}]}")
+        let duplicate = json.replacing("}]}", with: "},{\"id\":\"a\",\"identifier\":\"2025550101\",\"channel\":\"call\",\"reportedAt\":\"2026-10-02T00:00:00Z\"}]}")
         XCTAssertThrowsError(try SourceAdapters.parse(data: duplicate, source: custom(), now: now))
     }
     func testIdentificationListIsNeutralAndRequiresPublisherDate() throws {
@@ -83,20 +83,6 @@ final class IngestionTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(parsed.records[0].id, "331e2aa886566d84b430faa10e423ae9e38de7332d6f556b23cc99ed458c194d")
         XCTAssertEqual(parsed.publisherWatermark, SourceAdapters.parseDate("2026-10-02T13:00:00Z"))
         XCTAssertEqual(parsed.records[0].confirmationGrade, 0)
-    }
-    func testFCCRequiresExplicitTextTypeDisplayedSenderAndUsableDate() throws {
-        let data = Data("""
-        [{"id":"1","type_of_call_or_messge":"Text Message","caller_id_number":"2025550100","issue_date":"2026-10-02T00:00:00.000","advertiser_business_phone_number":"2025550199"},
-         {"id":"2","type_of_call_or_messge":"Live Voice","caller_id_number":"2025550101","issue_date":"2026-10-02T00:00:00.000"},
-         {"id":"3","type_of_call_or_messge":"Text Message","caller_id_number":"None","advertiser_business_phone_number":"2025550102","issue_date":"2026-10-02T00:00:00.000"},
-         {"id":"4","type_of_call_or_messge":"Text Message","caller_id_number":"2025550103"}]
-        """.utf8)
-        let parsed = try SourceAdapters.parse(data: data, source: SourceCatalog.builtIns[1], now: now)
-        XCTAssertEqual(parsed.records.count, 1)
-        XCTAssertEqual(parsed.records[0].numberE164, "+12025550100")
-        XCTAssertEqual(parsed.records[0].channel, .sms)
-        XCTAssertEqual(parsed.records[0].confirmationGrade, 0)
-        XCTAssertEqual(parsed.rejectedRecordCount, 3)
     }
     func testFTCDiscoveryUsesOnlyPublishedSameHostHTTPSCSVLinks() throws {
         let url = SourceCatalog.builtIns[0].url

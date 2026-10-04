@@ -40,7 +40,7 @@ final class AppModel {
         #endif
         try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
         if !self.testing {
-            // Shared exports must remain readable for locked-screen calls/SMS after first unlock.
+            // Shared exports must remain readable for locked-screen calls after first unlock.
             try FileManager.default.setAttributes([.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
                                                   ofItemAtPath: rootURL.path)
             var directory = rootURL
@@ -169,10 +169,10 @@ final class AppModel {
         preparedSnapshot = prepared
     }
 
-    func saveRule(raw: String, channel: CommunicationChannel, action: RuleAction, note: String? = nil) async throws {
-        let identifier = try channel == .sms ? PhoneNormalizer.smsIdentifier(raw) : PhoneNormalizer.callNumber(raw)
-        let existing = rules.first { $0.identifier == identifier && $0.channel == channel }
-        let rule = PersonalRule(id: existing?.id ?? UUID().uuidString, identifier: identifier, channel: channel,
+    func saveRule(raw: String, action: RuleAction, note: String? = nil) async throws {
+        let identifier = try PhoneNormalizer.callNumber(raw)
+        let existing = rules.first { $0.identifier == identifier && $0.channel == .call }
+        let rule = PersonalRule(id: existing?.id ?? UUID().uuidString, identifier: identifier, channel: .call,
                                 action: action, note: note)
         try store.saveRule(rule)
         try loadState()
@@ -212,12 +212,12 @@ final class AppModel {
         catch { message = error.localizedDescription }
     }
 
-    func addSource(name: String, url: String, format: SourceFormat, channel: CommunicationChannel, token: String) async throws {
+    func addSource(name: String, url: String, format: SourceFormat, token: String) async throws {
         guard let url = URL(string: url) else {
             throw SpamHoleCoreError.invalidValue("Enter an HTTPS feed URL without embedded credentials.")
         }
         let source = try SourceCatalog.custom(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            url: url, format: format, channels: format == .identificationCSV ? [.call] : [channel])
+            url: url, format: format, channels: [.call])
         try KeychainCredentials.save(token: token, for: source.id)
         do { try store.saveSource(source) }
         catch { try? KeychainCredentials.remove(for: source.id); throw error }

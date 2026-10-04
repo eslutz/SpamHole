@@ -4,7 +4,7 @@
 
 - `App/`: SwiftUI views, app state, Contacts, Keychain, and background services. Assets live in `App/Assets.xcassets`.
 - `Sources/SpamHoleCore/`: shared reputation engine, SQLite storage, source adapters, normalization, and snapshots; `Sources/CSQLite/` bridges SQLite.
-- `Extensions/`: Call Directory and Message Filter targets.
+- `Extensions/`: Call Directory target.
 - `Tests/`: core, hosted app, and UI XCTest suites; numerical fixtures live in `Tests/SpamHoleCoreTests/Fixtures/`.
 - `Configuration/`, `project.yml`, and `scripts/`: build settings, manifests, XcodeGen specification, and tooling. `docs/` describes source contracts and release gates.
 
@@ -26,7 +26,7 @@ Use four-space indentation, `UpperCamelCase` types, and `lowerCamelCase` functio
 
 ## Testing Guidelines
 
-Add meaningful regression tests for behavioral changes. Name tests `test` followed by the expected behavior. Use synthetic senders and temporary stores; test invalid input, cancellation, expiry, and last-good-state recovery when applicable. No numeric coverage threshold is defined. CI runs core/reference, hosted/UI, packaging and site checks plus Gitleaks; simulator success does not establish physical call/SMS or VoiceOver acceptance.
+Add meaningful regression tests for behavioral changes. Name tests `test` followed by the expected behavior. Use synthetic senders and temporary stores; test invalid input, cancellation, expiry, and last-good-state recovery when applicable. No numeric coverage threshold is defined. CI runs core/reference, hosted/UI, packaging and site checks plus Gitleaks; simulator success does not establish physical call or VoiceOver acceptance.
 
 ## Commit & Pull Request Guidelines
 
@@ -34,4 +34,4 @@ Use concise imperative subjects, following existing descriptive commits without 
 
 ## Security & Configuration
 
-Copy `Configuration/Local.xcconfig.example` to the ignored `Local.xcconfig` for custom identity/signing. Never commit credentials, signing material, personal data, or raw device logs. Preserve offline sender matching, fail-open SMS behavior, user-rule precedence, and reviewed source authority. Follow `SECURITY.md`; do not claim production readiness while release gates remain open.
+Copy `Configuration/Local.xcconfig.example` to the ignored `Local.xcconfig` for custom identity/signing. Never commit credentials, signing material, personal data, or raw device logs. Preserve offline call matching, user-rule precedence, last-good-state recovery, and reviewed source authority. SpamHole is call-only and has no message access. Follow `SECURITY.md`; do not claim production readiness while release gates remain open.

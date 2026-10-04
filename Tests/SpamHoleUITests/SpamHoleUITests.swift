@@ -39,12 +39,12 @@ final class SpamHoleUITests: XCTestCase {
         let canonical = app.staticTexts["lookup.canonicalSender"]
         XCTAssertTrue(canonical.waitForExistence(timeout: 5))
         XCTAssertEqual(canonical.label, "+12025550123")
-        let decision = app.descendants(matching: .any)["lookup.smsDecision"]
+        let decision = app.descendants(matching: .any)["lookup.callRule"]
         XCTAssertTrue(decision.waitForExistence(timeout: 5))
-        XCTAssertTrue(decision.label.contains("Allow"), "The saved Both allow rule must appear in the local SMS decision")
+        XCTAssertTrue(decision.label.contains("Allow"), "The saved call allow rule must appear in the local lookup")
     }
 
-    func testSMSOnlyJunkRuleSupportsExactShortCode() {
+    func testPersonalCallBlockRuleCanBeSavedAndFoundOffline() {
         let app = launchApp()
         completeOnboarding(in: app)
         app.tabBars.buttons["Lookup"].tap()
@@ -53,24 +53,22 @@ final class SpamHoleUITests: XCTestCase {
         let sender = app.textFields["rule.sender"]
         XCTAssertTrue(sender.waitForExistence(timeout: 5))
         sender.tap()
-        sender.typeText("54321")
-        app.buttons["rule.channel"].tap()
-        app.buttons["SMS"].tap()
+        sender.typeText("2025550123")
         if app.buttons["rule.action.block"].exists {
             app.buttons["rule.action.block"].tap()
         } else {
-            app.segmentedControls["rule.action"].buttons["Block / Junk"].tap()
+            app.segmentedControls["rule.action"].buttons["Block"].tap()
         }
         app.buttons["rule.save"].tap()
 
         let lookup = app.textFields["lookup.sender"]
         XCTAssertTrue(lookup.waitForExistence(timeout: 5))
         lookup.tap()
-        lookup.typeText("54321")
+        lookup.typeText("2025550123")
         app.buttons["lookup.search"].tap()
-        let decision = app.descendants(matching: .any)["lookup.smsDecision"]
+        let decision = app.descendants(matching: .any)["lookup.callRule"]
         XCTAssertTrue(decision.waitForExistence(timeout: 5))
-        XCTAssertTrue(decision.label.contains("Junk"), "The saved SMS-only short-code rule must produce Junk locally")
+        XCTAssertTrue(decision.label.contains("Block"), "The saved call block rule must appear in the local lookup")
     }
 
     func testRemediatedActionsLight() throws {
@@ -104,9 +102,11 @@ final class SpamHoleUITests: XCTestCase {
         let json = app.buttons["source.format.json"]
         scrollIntoView(json, in: app)
         XCTAssertTrue(json.isHittable)
-        let sms = app.buttons["source.channel.sms"]
-        scrollIntoView(sms, in: app); sms.tap()
-        XCTAssertTrue(sms.isSelected)
+        json.tap()
+        XCTAssertTrue(json.isSelected)
+        let csv = app.buttons["source.format.csv"]
+        scrollIntoView(csv, in: app); csv.tap()
+        XCTAssertTrue(csv.isSelected)
         capture(app, "followup-source-choices-\(style)")
         try audit(app, "FollowupSource-\(style)")
         app.buttons["Cancel"].tap()
@@ -117,8 +117,8 @@ final class SpamHoleUITests: XCTestCase {
         scrollIntoView(input, in: app); input.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         waitForHittable(input); input.tap()
-        input.typeText("54321")
-        XCTAssertEqual(input.value as? String, "54321")
+        input.typeText("2025550123")
+        XCTAssertEqual(input.value as? String, "2025550123")
         app.swipeUp()
         let search = app.buttons["lookup.search"]
         scrollIntoView(search, in: app); search.tap()
@@ -184,13 +184,10 @@ final class SpamHoleUITests: XCTestCase {
         let sender = app.textFields["rule.sender"]
         XCTAssertTrue(sender.waitForExistence(timeout: 5))
         capture(app, "remediation-rule-largest-top-\(style)")
-        // Choices are body-size rows at accessibility sizes, including Calls/SMS/Both.
-        let sms = app.buttons["rule.channel.sms"]
-        scrollIntoView(sms, in: app)
-        XCTAssertTrue(sms.isHittable); sms.tap()
-        let junk = app.buttons["rule.action.block"]
-        scrollIntoView(junk, in: app)
-        XCTAssertTrue(junk.isHittable); junk.tap()
+        // Call decisions remain body-size rows at accessibility sizes.
+        let block = app.buttons["rule.action.block"]
+        scrollIntoView(block, in: app)
+        XCTAssertTrue(block.isHittable); block.tap()
         capture(app, "remediation-rule-largest-decisions-\(style)")
         // Capture the scaled choices before the audit temporarily changes font settings.
         scrollIntoView(sender, in: app, startGoingUp: false)
@@ -198,7 +195,7 @@ final class SpamHoleUITests: XCTestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         waitForHittable(sender)
         sender.tap() // Reacquire the field after the keyboard changes the form viewport.
-        sender.typeText("54321")
+        sender.typeText("2025550123")
         app.swipeUp() // The form dismisses the keyboard immediately when scrolling.
         app.buttons["rule.save"].tap()
         let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.navigationBars["Personal Rule"])
@@ -209,14 +206,14 @@ final class SpamHoleUITests: XCTestCase {
         waitForHittable(lookup)
         lookup.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        lookup.typeText("54321")
+        lookup.typeText("2025550123")
         app.swipeUp()
         let search = app.buttons["lookup.search"]
         scrollIntoView(search, in: app)
         search.tap()
-        let decision = app.descendants(matching: .any)["lookup.smsDecision"]
+        let decision = app.descendants(matching: .any)["lookup.callRule"]
         for _ in 0..<8 where !decision.isHittable { app.swipeUp() }
-        XCTAssertTrue(decision.exists); XCTAssertTrue(decision.label.contains("Junk"))
+        XCTAssertTrue(decision.exists); XCTAssertTrue(decision.label.contains("Block"))
         app.buttons["rule.add"].tap()
         XCTAssertTrue(app.textFields["rule.sender"].waitForExistence(timeout: 5))
         try audit(app, "LargestRule-\(style)")

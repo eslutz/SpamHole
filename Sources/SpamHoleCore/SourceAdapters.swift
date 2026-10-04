@@ -51,12 +51,13 @@ public enum SourceAdapters {
 
     public static func parse(data: Data, source: SourceDefinition, now: Date,
                              publisherWatermark: Date? = nil) throws -> ParsedSourceImport {
+        try SourceCatalog.validateCallSource(source)
         guard data.count <= 32 * 1024 * 1024 else { throw SourceImportError.oversizedPayload }
         switch source.format {
         case .evidenceJSON: return try parseEvidenceJSON(data, source: source, now: now)
         case .identificationCSV: return try parseIdentificationList(data, source: source, now: now, watermark: publisherWatermark)
         case .ftcCSV: return try parseFTC(data, source: source, now: now, watermark: publisherWatermark)
-        case .fccJSON: return try parseFCC(data, source: source, now: now, watermark: publisherWatermark)
+        case .fccJSON: throw SourceImportError.invalidSchema("The retired text-complaint format is unsupported.")
         }
     }
 
@@ -84,6 +85,7 @@ public enum SourceAdapters {
     }
 
     public static func parseEvidenceJSON(_ data: Data, source: SourceDefinition, now: Date) throws -> ParsedSourceImport {
+        try SourceCatalog.validateCallSource(source)
         if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any], object["signature"] != nil {
             throw SourceImportError.invalidSchema("Signed feed envelopes need a reviewed signing-key contract, which V1 does not support.")
         }
@@ -109,7 +111,7 @@ public enum SourceAdapters {
         let records = try envelope.records.map { record -> EvidenceRecord in
             guard !record.id.isEmpty, record.id.utf8.count <= 256, identifiers.insert(record.id).inserted,
                   let identifier = normalize(record.identifier, channel: record.channel),
-                  source.channels.contains(record.channel) || source.channels.contains(.both),
+                  record.channel == .call,
                   record.reportedAt <= envelope.publisherWatermark,
                   record.observedAt.map({ $0 <= record.reportedAt }) ?? true else {
                 throw SourceImportError.invalidSchema("A record has an invalid identifier, duplicate ID, channel or date.")
@@ -139,6 +141,7 @@ public enum SourceAdapters {
 
     public static func parseIdentificationList(_ data: Data, source: SourceDefinition, now: Date,
                                                watermark: Date?) throws -> ParsedSourceImport {
+        try SourceCatalog.validateCallSource(source)
         guard let watermark else { throw SourceImportError.invalidSchema("Identification lists require a publisher Last-Modified timestamp.") }
         try validateWatermark(watermark, now: now)
         guard let text = String(data: data, encoding: .utf8) else { throw SourceImportError.invalidEncoding }
@@ -161,6 +164,7 @@ public enum SourceAdapters {
 
     public static func parseFTC(_ data: Data, source: SourceDefinition, now: Date,
                                watermark: Date?) throws -> ParsedSourceImport {
+        try SourceCatalog.validateCallSource(source)
         guard let text = String(data: data, encoding: .utf8) else { throw SourceImportError.invalidEncoding }
         let rows = try CSV.parse(text)
         guard let header = rows.first else { throw SourceImportError.invalidSchema("Missing FTC CSV header.") }
@@ -197,31 +201,6 @@ public enum SourceAdapters {
         return ParsedSourceImport(records: records, publisherWatermark: coverage, rejectedRecordCount: rejected)
     }
 
-    public static func parseFCC(_ data: Data, source: SourceDefinition, now: Date,
-                               watermark: Date?) throws -> ParsedSourceImport {
-        guard let objects = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
-            throw SourceImportError.invalidSchema("Expected the FCC Socrata JSON array.")
-        }
-        guard objects.count <= maximumRecords else { throw SourceImportError.tooManyRecords }
-        var rows: [(String, String, Date, String)] = []; var rejected = 0
-        for object in objects {
-            // Voice records never become SMS evidence. Advertiser/business numbers are not sender IDs.
-            guard object["type_of_call_or_messge"] as? String == "Text Message" else { rejected += 1; continue }
-            guard let id = object["id"] as? String, let sender = object["caller_id_number"] as? String,
-                  let exact = normalize(sender, channel: .sms), let dateString = object["issue_date"] as? String,
-                  let date = parseDate(dateString), date <= now.addingTimeInterval(300) else { rejected += 1; continue }
-            rows.append((id, exact, date, dateString))
-        }
-        guard let derived = rows.map({ $0.2 }).max() else { throw SourceImportError.emptyDataset }
-        let coverage = watermark ?? derived; try validateWatermark(coverage, now: now)
-        let records = rows.map {
-            EvidenceRecord(id: $0.0, sourceID: source.id, sourceFamilyID: "fcc-complaints", numberE164: $0.1,
-                           channel: .sms, numberRole: .displayedSender, reportedAt: $0.2, publisherWatermark: coverage,
-                           originalReportedDate: $0.3)
-        }
-        return ParsedSourceImport(records: records, publisherWatermark: coverage, rejectedRecordCount: rejected)
-    }
-
     public static func parseDate(_ text: String) -> Date? {
         let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let date = fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text) { return date }
@@ -239,9 +218,8 @@ public enum SourceAdapters {
     private static func normalize(_ raw: String, channel: CommunicationChannel) -> String? {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !["", "none", "null", "n/a", "unknown", "anonymous"].contains(trimmed.lowercased()) else { return nil }
-        if let phone = try? PhoneNormalizer.e164(trimmed) { return phone }
-        guard channel == .sms else { return nil }
-        return try? PhoneNormalizer.smsIdentifier(trimmed)
+        guard channel == .call else { return nil }
+        return try? PhoneNormalizer.e164(trimmed)
     }
 }
 

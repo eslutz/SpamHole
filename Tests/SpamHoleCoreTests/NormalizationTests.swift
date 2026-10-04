@@ -15,14 +15,10 @@ final class NormalizationTests: XCTestCase {
         XCTAssertThrowsError(try PhoneNormalizer.callNumber("+999123456789"))
         XCTAssertThrowsError(try PhoneNormalizer.callNumber("+44 020 7946 0018"))
     }
-    func testSMSIdentifiersRemainDistinct() throws {
-        XCTAssertEqual(try PhoneNormalizer.sender("12345").kind, .shortCode)
-        XCTAssertEqual(try PhoneNormalizer.smsIdentifier(" bankalert "), "BANKALERT")
-        XCTAssertEqual(try PhoneNormalizer.sender("BANKALERT").kind, .alphanumeric)
-        XCTAssertEqual(try PhoneNormalizer.sender("2025550100").kind, .telephone)
-        XCTAssertThrowsError(try PhoneNormalizer.smsIdentifier("1234"))
-        XCTAssertThrowsError(try PhoneNormalizer.smsIdentifier("911"))
-        XCTAssertThrowsError(try PhoneNormalizer.smsIdentifier("bank@example.com"))
-        XCTAssertThrowsError(try PhoneNormalizer.smsIdentifier("BANKALERTTOOLONG"))
+    func testCallNumbersRejectTextOnlyIdentifiers() {
+        for value in ["12345", "123456", "BANKALERT", "bank@example.com"] {
+            XCTAssertThrowsError(try PhoneNormalizer.callNumber(value), value)
+            XCTAssertThrowsError(try PhoneNormalizer.callDirectoryNumber(value), value)
+        }
     }
 }

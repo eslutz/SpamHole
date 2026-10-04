@@ -1,19 +1,18 @@
 # Privacy policy — SpamHole development version
 
-Reviewed October 4, 2026. Public-safe static policy and support pages are prepared
-in [`site/privacy.html`](site/privacy.html) and [`site/support.html`](site/support.html).
-Their presence does not establish a deployed public URL. This policy describes
+Reviewed October 4, 2026. Public static policy and support pages are maintained
+in [`site/privacy.html`](site/privacy.html) and [`site/support.html`](site/support.html). This policy describes
 the development source and must be rechecked against the distributed binary.
 
-SpamHole stores personal allow/block rules, source subscriptions, downloaded
+SpamHole stores personal call allow/block rules, source subscriptions, downloaded
 public evidence, preferences, and generated protection snapshots locally.
 Optional Contacts access is used only to protect accessible contact numbers from
 this app's automatic decisions. Names are not requested or cached; local
 protection snapshots may contain allow entries derived from contact numbers.
 Contacts are not uploaded, and explicit personal rules take priority.
 The shared data directory is excluded from automatic device backups. Its files
-use iOS protection that permits extension access after the first device unlock;
-missing or inaccessible SMS snapshots produce no Junk decision.
+use iOS protection that permits Call Directory extension access after the first
+device unlock.
 
 The containing app requests complete, non-personalized datasets from subscribed
 publishers. Those publishers receive ordinary request metadata, including IP
@@ -27,16 +26,27 @@ Disabling a source stops future refreshes but does not delete its credential;
 a transfer already handed to iOS may finish.
 
 Incoming caller numbers are matched by iOS against the installed Call Directory.
-The SMS extension matches a sender locally. It does not transmit, record, or
-inspect message bodies, and does not write message activity to shared storage.
+SpamHole is call-only and has no access to messages. It does not contain a
+Message Filter extension or request message access.
 There is no call-history collection, usage analytics, advertising, crash-upload
 SDK, public report submission, or account service.
 
-User-requested rule backup contains personal sender identifiers, rule details
+User-requested rule backup contains personal telephone numbers, rule details
 (including saved correction notes), and settings. It excludes contacts, source
 subscriptions, credentials, and downloaded evidence. The user chooses where to
-save or share it, including any cloud destination. Import replaces personal rules
-and settings and leaves Contacts protection off.
+save or share it, including any cloud destination. A successful import replaces
+personal rules and settings and leaves Contacts protection off. New exports use
+schema version 2 and contain call rules only. Legacy version 1 backups retain
+valid telephone-number call rules and convert the call portion of former combined
+rules; message-only rules are omitted, and converted/omitted counts are shown.
+Short codes are never promoted to call numbers. A nonempty message-only backup
+is rejected without changing existing rules; an explicitly empty rules list can
+clear them. Invalid backups are rejected before atomic replacement.
+
+Upgrading from the former call/SMS development build does not automatically
+erase all old local data. Legacy SMS-only records may remain dormant in local
+storage for compatibility; they are excluded from active call protection and
+new rule exports. The current app has no message access.
 
 Individual rules can be removed in Lookup. Removing a custom source deletes its
 saved Keychain token and subscription; disabling/removing a source eliminates

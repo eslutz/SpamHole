@@ -13,16 +13,16 @@ struct LookupView: View {
     var body: some View {
         List {
             ReadableSection("Search your local database") {
-                Text("Phone number or SMS sender").font(.body)
-                TextField("Enter an exact identifier", text: $sender)
+                Text("Phone number").font(.body)
+                TextField("Enter a complete phone number", text: $sender)
                     .font(.body).focused($senderFocused)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .accessibilityLabel("Phone number or SMS sender").accessibilityIdentifier("lookup.sender").submitLabel(.search).onSubmit(lookup)
+                    .accessibilityLabel("Phone number").accessibilityIdentifier("lookup.sender").submitLabel(.search).onSubmit(lookup)
                 Button("Look Up", action: lookup).accessibilityIdentifier("lookup.search")
                 if let error { Text(error).font(.footnote).foregroundStyle(Color("ErrorText")) }
             }
             if let canonical {
-                ReadableSection("Exact identifier") {
+                ReadableSection("Phone number") {
                     Text(canonical).font(.headline).textSelection(.enabled).accessibilityIdentifier("lookup.canonicalSender")
                     if let assessment = model.assessment(for: canonical) {
                         StatusDetail(title: "Association index", value: assessment.result.associationIndex.formatted(.number.precision(.fractionLength(1))))
@@ -32,12 +32,14 @@ struct LookupView: View {
                         Text("Sources: " + assessment.sourceIDs.map { id in model.sources.first(where: { $0.id == id })?.name ?? id }.joined(separator: ", "))
                             .font(.footnote).foregroundStyle(Color("SecondaryText"))
                     } else {
-                        Text("No scored evidence in the latest local generation. Absence from a list does not verify that a call or message is legitimate.")
+                        Text("No scored evidence in the latest local generation. Absence from a list does not verify that a call is legitimate.")
                             .foregroundStyle(Color("SecondaryText"))
                     }
-                    if let action = model.snapshot?.smsAction(for: canonical) {
-                        StatusDetail(title: "SMS decision", value: action == .allow ? "Allow" : "Junk")
-                            .accessibilityIdentifier("lookup.smsDecision")
+                    if let rule = model.rules.first(where: { $0.identifier == canonical && $0.channel == .call }) {
+                        StatusDetail(title: "Personal call rule", value: rule.action == .allow ? "Allow" : "Block")
+                            .accessibilityIdentifier("lookup.callRule")
+                        Text("Installed call entries change after a successful iOS reload.")
+                            .font(.footnote).foregroundStyle(Color("SecondaryText"))
                     }
                     Text("Indices describe evidence and policy. They are not percentages or caller authentication.")
                         .font(.footnote).foregroundStyle(Color("SecondaryText"))
@@ -53,7 +55,7 @@ struct LookupView: View {
                             .foregroundStyle(rule.action == .allow ? Color.teal : Color.orange)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(rule.identifier).font(.headline)
-                            Text("\(rule.action == .allow ? "Allow" : "Block / Junk") · \(rule.channel.displayName)")
+                            Text(rule.action == .allow ? "Allow calls" : "Block calls")
                                 .font(.caption).foregroundStyle(Color("SecondaryText"))
                             if let note = rule.note { Text(note).font(.caption).foregroundStyle(Color("SecondaryText")) }
                         }
@@ -73,7 +75,7 @@ struct LookupView: View {
 
     private func lookup() {
         senderFocused = false
-        do { canonical = try PhoneNormalizer.smsIdentifier(sender); error = nil }
+        do { canonical = try PhoneNormalizer.callNumber(sender); error = nil }
         catch { canonical = nil; self.error = error.localizedDescription }
     }
 }
@@ -88,11 +90,11 @@ struct CorrectionView: View {
     let sender: String
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var reason = "Wanted caller or sender"
+    @State private var reason = "Wanted caller"
     @State private var error: String?
     @State private var saving = false
 
-    private let reasons = ["Wanted caller or sender", "Wrong number", "Number reassigned", "Number being spoofed", "Source record withdrawn"]
+    private let reasons = ["Wanted caller", "Wrong number", "Number reassigned", "Number being spoofed", "Source record withdrawn"]
     var body: some View {
         NavigationStack {
             Form {
@@ -108,7 +110,7 @@ struct CorrectionView: View {
                             ForEach(reasons, id: \.self) { Text($0).tag($0) }
                         }
                     }
-                    Text("This saves a private allow rule for this exact sender. It does not verify its owner or send a report to the publisher. Installed call entries change only after a successful reload.")
+                    Text("This saves a private allow rule for this exact phone number. It does not verify its owner or send a report to the publisher. Installed call entries change only after a successful reload.")
                         .font(.footnote).foregroundStyle(Color("SecondaryText"))
                 }
                 if let error { Section { Text(error).foregroundStyle(Color("ErrorText")) } }
@@ -121,8 +123,7 @@ struct CorrectionView: View {
                         saving = true
                         Task {
                             do {
-                                let channel: CommunicationChannel = (try? PhoneNormalizer.callNumber(sender)) == nil ? .sms : .both
-                                try await model.saveRule(raw: sender, channel: channel, action: .allow, note: reason)
+                                try await model.saveRule(raw: sender, action: .allow, note: reason)
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                             saving = false
@@ -139,7 +140,6 @@ struct RuleEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var sender: String
     @FocusState private var senderFocused: Bool
-    @State private var channel: CommunicationChannel = .both
     @State private var action: RuleAction = .allow
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var error: String?
@@ -153,37 +153,29 @@ struct RuleEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                ReadableSection("Exact sender") {
-                    Text("Phone number or SMS sender").font(.body)
-                    TextField("Enter an exact identifier", text: $sender)
+                ReadableSection("Phone number") {
+                    Text("Phone number").font(.body)
+                    TextField("Enter a complete phone number", text: $sender)
                         .font(.body).focused($senderFocused).textInputAutocapitalization(.never)
                         .onSubmit { senderFocused = false }
-                        .autocorrectionDisabled().submitLabel(.done).accessibilityLabel("Phone number or SMS sender").accessibilityIdentifier("rule.sender")
+                        .autocorrectionDisabled().submitLabel(.done).accessibilityLabel("Phone number").accessibilityIdentifier("rule.sender")
                 }
                 if dynamicTypeSize.isAccessibilitySize {
-                    ReadableSection("Applies to") {
-                        ForEach(CommunicationChannel.allCases, id: \.self) { value in
-                            choice(value.displayName, selected: channel == value, id: "rule.channel.\(value.rawValue)") { channel = value }
-                        }
-                    }
                     ReadableSection("Decision") {
                         choice("Allow", selected: action == .allow, id: "rule.action.allow") { action = .allow }
-                        choice("Block / Junk", selected: action == .block, id: "rule.action.block") { action = .block }
+                        choice("Block", selected: action == .block, id: "rule.action.block") { action = .block }
                     }
                 } else {
                     ReadableSection("Rule choices") {
-                        Picker("Applies to", selection: $channel) {
-                            ForEach(CommunicationChannel.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                        }.pickerStyle(.menu).accessibilityIdentifier("rule.channel")
                         Picker("Decision", selection: $action) {
                             Text("Allow").tag(RuleAction.allow)
-                            Text("Block / Junk").tag(RuleAction.block)
+                            Text("Block").tag(RuleAction.block)
                         }.pickerStyle(.segmented).accessibilityIdentifier("rule.action")
                     }
                 }
                 Section {
-                    Text("Allow rules take priority. A Block / Junk rule blocks calls and/or sends SMS to Junk for the selected channel. It affects only SpamHole.")
-                    Text("Use SMS only for short codes and alphanumeric senders. Complete numbers are required for calls; prefixes and ranges are rejected.")
+                    Text("Allow rules take priority. A Block rule blocks calls from this number through SpamHole.")
+                    Text("Enter a complete phone number. Prefixes, ranges and incomplete numbers are rejected.")
                         .font(.footnote).foregroundStyle(Color("SecondaryText"))
                 }
                 if let error { Section { Text(error).foregroundStyle(Color("ErrorText")) } }
@@ -197,7 +189,7 @@ struct RuleEditorView: View {
                         senderFocused = false
                         saving = true
                         Task {
-                            do { try await model.saveRule(raw: sender, channel: channel, action: action); dismiss() }
+                            do { try await model.saveRule(raw: sender, action: action); dismiss() }
                             catch { self.error = error.localizedDescription }
                             saving = false
                         }
@@ -216,11 +208,5 @@ struct RuleEditorView: View {
         }
         .accessibilityIdentifier(id)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
-    }
-}
-
-extension CommunicationChannel {
-    var displayName: String {
-        switch self { case .call: "Calls"; case .sms: "SMS"; case .both: "Both" }
     }
 }

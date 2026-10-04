@@ -42,7 +42,7 @@ struct SettingsView: View {
                     } catch { model.message = error.localizedDescription }
                 }
                 Button("Import Rules & Settings") { importing = true }
-                Text("Import replaces personal rules. Backups contain sender identifiers and preferences; they exclude source credentials, contacts, and downloaded evidence.")
+                Text("Import replaces personal rules. Backups contain phone numbers and preferences; they exclude source credentials, contacts, and downloaded evidence.")
                     .font(.footnote).foregroundStyle(Color("SecondaryText"))
             }
             ReadableSection("About") {
@@ -71,16 +71,16 @@ struct PrivacyView: View {
     var body: some View {
         List {
             ReadableSection("On your device") {
-                Text("Personal sender rules, preferences, source credentials, evidence, and protection generations are stored locally. Contacts are accessed only when you enable protection and are never uploaded.")
+                Text("Personal call rules, preferences, source credentials, evidence, and protection generations are stored locally. Contacts are accessed only when you enable protection and are never uploaded.")
             }
             ReadableSection("Publisher downloads") {
-                Text("Subscribed publishers see ordinary download metadata, including IP address and timing. Requests retrieve non-personalized datasets, never the number that just called or sent a message.")
+                Text("Subscribed publishers see ordinary download metadata, including IP address and timing. Requests retrieve non-personalized datasets, never the number that just called.")
             }
-            ReadableSection("Incoming communications") {
-                Text("iOS matches caller numbers against installed entries. SMS senders are matched locally. SpamHole does not collect call history, inspect message bodies, or log received messages.")
+            ReadableSection("Incoming calls") {
+                Text("iOS matches caller numbers against installed entries. SpamHole does not collect call history or upload incoming numbers.")
             }
             ReadableSection("Your control") {
-                Text("No accounts, ads, or analytics SDKs. Exporting rules puts personal sender identifiers into a file at a destination you choose. Credentials and contact data are excluded.")
+                Text("No accounts, ads, or analytics SDKs. Exporting rules puts personal phone numbers into a file at a destination you choose. Credentials and contact data are excluded.")
             }
         }.navigationTitle("Privacy").navigationBarTitleDisplayMode(.inline)
     }
@@ -89,11 +89,8 @@ struct PrivacyView: View {
 struct ReleaseRequirementsView: View {
     var body: some View {
         List {
-            ReadableSection("Required SMS feed · blocked") {
-                Text("V1 requires a vetted free/open sender feed with current SMS-specific confirmation, offline-use rights, source provenance, and a correction mechanism. No source currently qualifies.")
-            }
             ReadableSection("Device acceptance · pending") {
-                Text("Real cellular call/SMS behavior, App Group access, Contacts conflicts, stale-entry removal, and database capacity must be verified on physical iPhones. Simulator testing does not establish these outcomes.")
+                Text("Real cellular call behavior, App Group access, Contacts conflicts, stale-entry removal, and database capacity must be verified on physical iPhones. Simulator testing does not establish these outcomes.")
             }
             ReadableSection("Distribution · pending") {
                 Text("Signing, TestFlight delivery, hosted privacy/support pages, source attribution, and metadata review remain separate release requirements. This build has not been submitted to the App Store.")

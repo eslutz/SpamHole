@@ -1,5 +1,10 @@
 # SMS sender-feed qualification follow-up
 
+> Retired historical research: on October 4, 2026 the user chose a call-only
+> SpamHole and removed SMS filtering from scope. This report preserves earlier
+> findings; its SMS features, feed gates and recommendations are not current
+> product requirements. SpamHole has no message access.
+
 Checked October 4, 2026. **No qualifying feed found; public-release gate remains blocked.** This targeted review does not establish that a qualifying source is impossible or absent everywhere. No source was added to the trusted catalog, and no subscription, purchase, account registration or publisher contact was made.
 
 ## Qualification standard

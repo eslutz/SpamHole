@@ -34,8 +34,6 @@ public struct SnapshotFiles: Sendable {
         do {
             try encoder().encode(snapshot).write(to: directory.appendingPathComponent("snapshot.json"), options: .atomic)
             try encoder().encode(snapshot.metadata).write(to: directory.appendingPathComponent("metadata.json"), options: .atomic)
-            try encoder().encode(SMSSnapshot(metadata: snapshot.metadata, decisions: snapshot.smsDecisions))
-                .write(to: directory.appendingPathComponent("sms.json"), options: .atomic)
             try CallDirectorySnapshotReader.write(snapshot: snapshot, directory: directory)
             // Point readers at the new, complete generation only after its payload has been persisted.
             try encoder().encode(pointer).write(to: currentURL, options: .atomic)
@@ -53,15 +51,6 @@ public struct SnapshotFiles: Sendable {
         let metadata = try decoder().decode(GenerationMetadata.self, from: boundedRead(directory.appendingPathComponent("metadata.json"), maximumBytes: 4096))
         guard metadata.id == pointer.generationID else { throw SpamHoleCoreError.invalidSnapshot("Generation identity mismatch") }
         return try CallDirectorySnapshotReader(metadata: metadata, directory: directory)
-    }
-    public func loadSMSSnapshot() throws -> SMSSnapshot {
-        let pointer = try decoder().decode(Pointer.self, from: boundedRead(currentURL, maximumBytes: 4096))
-        guard pointer.schemaVersion == 1 else { throw SpamHoleCoreError.unsupportedSchema }
-        let snapshot = try decoder().decode(SMSSnapshot.self,
-            from: boundedRead(generationURL(pointer.generationID).appendingPathComponent("sms.json"), maximumBytes: 16 * 1024 * 1024))
-        guard snapshot.metadata.id == pointer.generationID else { throw SpamHoleCoreError.invalidSnapshot("Generation identity mismatch") }
-        try snapshot.validate()
-        return snapshot
     }
     public func loadCurrent() throws -> ProtectionSnapshot {
         guard FileManager.default.fileExists(atPath: currentURL.path) else { throw SpamHoleCoreError.snapshotUnavailable }

@@ -5,10 +5,10 @@ import CSQLite
 final class SnapshotTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_790_985_600)
     private let number = "+12025550100"
-    private func source(id: String = "publisher", family: String = "origin", sms: Bool = false,
+    private func source(id: String = "publisher", family: String = "origin",
                         trusted: Bool = true) -> SourceDefinition {
         .init(id: id, name: "Test publisher", url: URL(string: "https://example.com/feed")!, format: .evidenceJSON,
-              channels: sms ? [.sms] : [.call], sourceFamilyID: family,
+              channels: [.call], sourceFamilyID: family,
               reviewedTrust: trusted ? .init(familyWeight: 1) : nil)
     }
     private func record(id: String = "a", sourceID: String = "publisher", channel: CommunicationChannel = .call,
@@ -25,15 +25,16 @@ final class SnapshotTests: XCTestCase {
         try SnapshotBuilder().build(evidence: evidence, sources: sources, rules: rules, settings: settings,
                                     protectedContacts: contacts, previous: previous, now: now)
     }
-    func testAllowManualBlockContactsFeedPrecedenceAndChannelSelection() throws {
-        let both = PersonalRule(identifier: number, channel: .both, action: .block)
-        let allowSMS = PersonalRule(identifier: number, channel: .sms, action: .allow)
-        let snapshot = try build(rules: [both, allowSMS], settings: .init(contactProtection: true), contacts: [number])
+    func testAllowManualBlockContactsAndFeedPrecedence() throws {
+        let block = PersonalRule(identifier: number, action: .block)
+        let snapshot = try build(rules: [block], settings: .init(contactProtection: true), contacts: [number])
         XCTAssertEqual(snapshot.callBlocking, [12025550100], "Manual block overrides contact protection")
-        XCTAssertEqual(snapshot.smsAction(for: "2025550100", now: now), .allow, "Explicit allow overrides manual Junk")
-        let allow = PersonalRule(identifier: number, channel: .call, action: .allow)
-        XCTAssertTrue(try build(rules: [both, allow]).callBlocking.isEmpty)
-        XCTAssertEqual(try build(rules: [both, allow]).smsAction(for: number, now: now), .junk)
+        let allow = PersonalRule(identifier: number, action: .allow)
+        XCTAssertTrue(try build(rules: [block, allow]).callBlocking.isEmpty)
+        let reports = (0..<5).map { record(id: "\($0)") }
+        XCTAssertFalse(try build(reports, sources: [source()]).callIdentification.isEmpty)
+        XCTAssertTrue(try build(reports, sources: [source()], rules: [allow]).callIdentification.isEmpty)
+        XCTAssertTrue(try build(reports, sources: [source()], settings: .init(contactProtection: true), contacts: [number]).callIdentification.isEmpty)
     }
     func testMirrorsDoNotCorroborateAndFeedFamiliesCannotPromoteThemselves() throws {
         let records = (0..<7).flatMap { day in
@@ -50,14 +51,12 @@ final class SnapshotTests: XCTestCase {
         XCTAssertEqual(original.callIdentification.first?.label, "Many spam reports")
         XCTAssertTrue(try build(records, sources: [source(trusted: false)]).callIdentification.isEmpty)
     }
-    func testVoiceEvidenceCannotFilterTextsAndUntrustedGradeCannotAuthorizeBlocking() throws {
+    func testUntrustedGradeCannotAuthorizeCallBlocking() throws {
         let records = (0..<7).flatMap { day in (0..<5).map { record(id: "\(day)-\($0)", age: Double(day), confirmed: true) } }
         let snapshot = try build(records, sources: [source()])
         XCTAssertTrue(snapshot.callBlocking.isEmpty)
-        XCTAssertNil(snapshot.smsAction(for: number, now: now))
         XCTAssertEqual(snapshot.assessments.first?.result.confirmation, 0)
-        let sms = try build([record(channel: .sms, confirmed: true)], sources: [source(sms: true)])
-        XCTAssertNil(sms.smsAction(for: number, now: now))
+
     }
     func testBurstUncertaintyUsesRawDeduplicatedObservedDates() throws {
         let concentrated = (0..<100).map { record(id: "\($0)") }
@@ -67,20 +66,22 @@ final class SnapshotTests: XCTestCase {
         let spread = (0..<7).flatMap { day in (0..<5).map { record(id: "\(day)-\($0)", age: Double(day)) } }
         XCTAssertEqual(try build(spread, sources: [source()]).assessments.first?.result.uncertaintyPenalty, 0)
     }
-    func testApprovedSMSConfirmationExpiresAndConflictsVetoIt() throws {
-        var approved = source(sms: true)
-        approved.reviewedTrust = .init(familyWeight: 1, confirmationAuthority: true, smsJunkAuthority: true,
+    func testApprovedCallConfirmationExpiresAndRequiresReviewedMethodAndGrade() throws {
+        var approved = source()
+        approved.reviewedTrust = .init(familyWeight: 1, confirmationAuthority: true,
                                       allowedConfirmationMethods: ["reviewed-origin"], maximumConfirmationGrade: 1)
-        let confirmed = record(channel: .sms, identifier: "12345", confirmed: true)
+        let confirmed = record(confirmed: true)
         let snapshot = try build([confirmed], sources: [approved])
-        XCTAssertEqual(snapshot.smsAction(for: "12345", now: now), .junk)
-        XCTAssertNil(snapshot.smsAction(for: "12345", now: now.addingTimeInterval(2 * 86_400)))
-        XCTAssertNil(snapshot.smsAction(for: "123456", now: now))
-        var conflict = record(id: "conflict", channel: .sms, identifier: "12345")
-        conflict.positivePenalty = 1
-        XCTAssertNil(try build([confirmed, conflict], sources: [approved]).smsAction(for: "12345", now: now))
+        XCTAssertEqual(snapshot.assessments.first?.result.confirmation, 1)
+        XCTAssertTrue(snapshot.callBlocking.isEmpty, "Feed confirmation does not enable automatic blocking")
         var expired = confirmed; expired.confirmationReviewedAt = now.addingTimeInterval(-8 * 86_400)
-        XCTAssertNil(try build([expired], sources: [approved]).smsAction(for: "12345", now: now))
+        XCTAssertEqual(try build([expired], sources: [approved]).assessments.first?.result.confirmation, 0)
+        expired = confirmed; expired.confirmationExpiresAt = now
+        XCTAssertEqual(try build([expired], sources: [approved]).assessments.first?.result.confirmation, 0)
+        var unsupported = confirmed; unsupported.confirmationMethod = "publisher-self-claim"
+        XCTAssertEqual(try build([unsupported], sources: [approved]).assessments.first?.result.confirmation, 0)
+        approved.reviewedTrust?.maximumConfirmationGrade = 0.8
+        XCTAssertEqual(try build([confirmed], sources: [approved]).assessments.first?.result.confirmation, 0)
     }
     func testRetractionsCallbackEvidenceSourceRemovalAndOwnershipResetRemoveEntries() throws {
         var approved = source()
@@ -111,7 +112,7 @@ final class SnapshotTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let files = SnapshotFiles(rootURL: directory)
         XCTAssertThrowsError(try files.loadCurrent())
-        let snapshot = try build(rules: [.init(identifier: number, action: .block), .init(identifier: "BANKALERT", channel: .sms, action: .allow)])
+        let snapshot = try build(rules: [.init(identifier: number, action: .block)])
         try files.publish(snapshot: snapshot)
         XCTAssertEqual(try files.loadCurrent().metadata.id, snapshot.metadata.id)
         let reader = try files.callDirectoryReader()
@@ -119,7 +120,6 @@ final class SnapshotTests: XCTestCase {
         try reader.streamBlocking { numbers.append($0) }
         XCTAssertEqual(numbers, [12025550100])
         try reader.streamIdentification { _ in XCTFail("Unexpected identification entry") }
-        XCTAssertEqual(try files.loadSMSSnapshot().smsAction(for: "bankalert", now: now), .allow)
         XCTAssertThrowsError(try files.publish(snapshot: snapshot), "Published generation payloads are immutable")
         let next = try build()
         try files.publish(snapshot: next)
@@ -179,7 +179,7 @@ final class SnapshotTests: XCTestCase {
         try store.saveRule(.init(id: "old", identifier: number, action: .block))
         try store.setSetting(AppSettings(policy: .conservative), forKey: "app-settings")
         try store.setSetting(true, forKey: "onboarding-complete")
-        let replacement = PersonalRule(id: "new", identifier: "BANK", channel: .sms, action: .allow, createdAt: now)
+        let replacement = PersonalRule(id: "new", identifier: "+14255550100", channel: .call, action: .allow, createdAt: now)
         let settings = AppSettings(policy: .aggressive, cadence: .weekly, contactProtection: true)
         try store.restorePersonalState(rules: [replacement], settings: settings)
         XCTAssertEqual(try store.rules(), [replacement])
@@ -204,7 +204,7 @@ final class SnapshotTests: XCTestCase {
         // Fail the settings write after rule deletion/insertion to prove SQL transaction rollback.
         let trigger = "CREATE TRIGGER reject_restore BEFORE INSERT ON settings WHEN NEW.key = 'app-settings' BEGIN SELECT RAISE(ABORT, 'test-failure'); END"
         XCTAssertEqual(sqlite3_exec(connection, trigger, nil, nil, nil), SQLITE_OK)
-        XCTAssertThrowsError(try store.restorePersonalState(rules: [.init(id: "new", identifier: "BANK", channel: .sms, action: .allow)],
+        XCTAssertThrowsError(try store.restorePersonalState(rules: [.init(id: "new", identifier: "+14255550100", channel: .call, action: .allow)],
                                                            settings: .init(policy: .aggressive)))
         XCTAssertEqual(try store.rules(), [originalRule])
         XCTAssertEqual(try store.setting(forKey: "app-settings", as: AppSettings.self), originalSettings)
@@ -215,7 +215,7 @@ final class SnapshotTests: XCTestCase {
         let entries = (0..<250_000).map { CallIdentificationEntry(number: 12025550000 + Int64($0), label: "Reported unwanted") }
         let blocks = (0..<25_000).map { 14255550000 + Int64($0) }
         let snapshot = ProtectionSnapshot(metadata: .init(createdAt: now, callIdentificationCount: entries.count,
-            callBlockCount: blocks.count, smsDecisionCount: 0, policy: .balanced), callIdentification: entries, callBlocking: blocks, smsDecisions: [])
+            callBlockCount: blocks.count, policy: .balanced), callIdentification: entries, callBlocking: blocks)
         let files = SnapshotFiles(rootURL: directory)
         try files.publish(snapshot: snapshot)
         var count = 0

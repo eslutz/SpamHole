@@ -79,49 +79,19 @@ final class RecoveryTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(try reopened.sourceState(id: source.id), previous)
     }
 
-    func testMissingCorruptAndMismatchedSMSSnapshotsFailOpenWithoutReadingRetainedJunk() throws {
-        for fault in ["missing-pointer", "corrupt-pointer", "missing-sms", "corrupt-sms", "wrong-generation"] {
+    func testMissingOrCorruptCurrentPointerCannotLoadCallProtection() throws {
+        for corrupt in [false, true] {
             let root = temporaryDirectory()
             let files = SnapshotFiles(rootURL: root)
             let snapshot = try SnapshotBuilder().build(evidence: [], sources: [],
-                rules: [.init(identifier: "54321", channel: .sms, action: .block)], settings: .init(), now: now)
+                rules: [.init(identifier: "+12025550100", action: .block)], settings: .init(), now: now)
             try files.publish(snapshot: snapshot)
-            let smsURL = root.appendingPathComponent("generations/\(snapshot.metadata.id.uuidString)/sms.json")
             let pointerURL = root.appendingPathComponent("current.json")
-            switch fault {
-            case "missing-pointer": try FileManager.default.removeItem(at: pointerURL)
-            case "corrupt-pointer": try Data("broken".utf8).write(to: pointerURL)
-            case "missing-sms": try FileManager.default.removeItem(at: smsURL)
-            case "corrupt-sms": try Data("broken".utf8).write(to: smsURL)
-            default:
-                var compact = try files.loadSMSSnapshot(); compact.metadata.id = UUID()
-                let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601
-                try encoder.encode(compact).write(to: smsURL)
-            }
-            XCTAssertThrowsError(try files.loadSMSSnapshot(), fault)
-            // The extension uses this optional load and returns no action on any read/validation failure.
-            XCTAssertNil((try? files.loadSMSSnapshot())?.smsAction(for: "54321", now: now), fault)
+            if corrupt { try Data("broken".utf8).write(to: pointerURL) }
+            else { try FileManager.default.removeItem(at: pointerURL) }
+            XCTAssertThrowsError(try files.loadCurrent())
+            XCTAssertThrowsError(try files.callDirectoryReader())
         }
-    }
-
-    func testCompactSMSExportExpiresFeedDecisionWithoutExpiringPersonalRules() throws {
-        let files = SnapshotFiles(rootURL: temporaryDirectory())
-        let expiry = now.addingTimeInterval(60)
-        let decisions: [SMSDecisionEntry] = [
-            .init(identifier: "12345", action: .junk, expiresAt: expiry, reason: "Synthetic reviewed evidence"),
-            .init(identifier: "54321", action: .allow, reason: "Personal allow rule"),
-            .init(identifier: "98765", action: .junk, reason: "Personal Junk rule")
-        ]
-        let snapshot = ProtectionSnapshot(metadata: .init(createdAt: now, callIdentificationCount: 0,
-            callBlockCount: 0, smsDecisionCount: 3, policy: .balanced), callIdentification: [], callBlocking: [], smsDecisions: decisions)
-        try files.publish(snapshot: snapshot)
-        let compact = try files.loadSMSSnapshot()
-        XCTAssertEqual(compact.smsAction(for: "12345", now: expiry.addingTimeInterval(-1)), .junk)
-        XCTAssertNil(compact.smsAction(for: "12345", now: expiry))
-        XCTAssertNil(compact.smsAction(for: "12345", now: expiry.addingTimeInterval(86400)))
-        XCTAssertEqual(compact.smsAction(for: "54321", now: expiry.addingTimeInterval(86400)), .allow)
-        XCTAssertEqual(compact.smsAction(for: "98765", now: expiry.addingTimeInterval(86400)), .junk)
-        XCTAssertNil(compact.smsAction(for: "123456", now: now))
     }
 
     func testMissingCallExportOrCorruptMetadataCannotReplaceInstalledReceipt() throws {
