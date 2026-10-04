@@ -61,8 +61,8 @@ CI includes synthetic iOS simulator tests and unsigned Release archive validatio
 See [release automation](docs/release-automation.md) for artifact validation and its
 limits. Public privacy/support pages are maintained in `docs/site/` and deployed
 separately from app distribution.
-The public [privacy policy](https://eslutz.github.io/SpamHole/privacy.html) and
-[support page](https://eslutz.github.io/SpamHole/support.html) describe the
+The public [privacy policy](https://spamhole.ericslutz.dev/privacy.html) and
+[support page](https://spamhole.ericslutz.dev/support.html) describe the
 development version; their publication does not establish app release readiness.
 
 See [development status](docs/status.md), [source qualification](docs/sources.md),
