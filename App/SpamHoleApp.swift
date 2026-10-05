@@ -1,6 +1,7 @@
 import Contacts
 import SpamHoleCore
 import SwiftUI
+import UIKit
 
 @main
 struct SpamHoleApp: App {
@@ -9,17 +10,23 @@ struct SpamHoleApp: App {
     @State private var model: AppModel?
     private let startupError: String?
     private let testingColorScheme: ColorScheme?
+    private let keepAwakeForTesting: Bool
 
     init() {
         #if DEBUG
         let arguments = ProcessInfo.processInfo.arguments
         let testing = arguments.contains("--ui-testing")
+        keepAwakeForTesting = testing || arguments.contains("--device-testing-keep-awake")
         testingColorScheme = arguments.contains("--ui-testing")
             ? (arguments.contains("--ui-testing-dark") ? .dark : arguments.contains("--ui-testing-light") ? .light : nil)
             : nil
         #else
         let testing = false
         testingColorScheme = nil
+        keepAwakeForTesting = false
+        #endif
+        #if DEBUG
+        UIApplication.shared.isIdleTimerDisabled = keepAwakeForTesting
         #endif
         do {
             let root: URL
@@ -29,7 +36,7 @@ struct SpamHoleApp: App {
             } else if let identity = AppIdentity.current, let group = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identity.appGroupIdentifier) {
                 root = group.appendingPathComponent("SpamHole", isDirectory: true)
             } else {
-                throw SpamHoleCoreError.invalidValue("The shared protection container is unavailable. Configure the SpamHole App Group for all three targets and reinstall.")
+                throw SpamHoleCoreError.invalidValue("The shared protection container is unavailable. Configure the SpamHole App Group for the app and Call Directory extension, then reinstall.")
             }
             let appModel = try AppModel(rootURL: root, testing: testing)
             _model = State(initialValue: appModel)
@@ -49,6 +56,9 @@ struct SpamHoleApp: App {
                     .preferredColorScheme(testingColorScheme)
                     .task { await model.becomeActive() }
                     .onChange(of: scenePhase) { _, phase in
+                        #if DEBUG
+                        UIApplication.shared.isIdleTimerDisabled = keepAwakeForTesting && phase == .active
+                        #endif
                         if phase == .active { Task { await model.becomeActive() } }
                         if phase == .background { BackgroundDelegate.schedule(model: model) }
                     }

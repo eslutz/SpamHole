@@ -3,6 +3,27 @@ import CSQLite
 @testable import SpamHoleCore
 
 final class SnapshotTests: XCTestCase {
+    func testValidLabelsRoundTripAndInvalidLabelsAreRejected() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let files = SnapshotFiles(rootURL: directory)
+        for label in ["Reported unwanted call", "Café ☎", String(repeating: "a", count: 128)] {
+            let snapshot = ProtectionSnapshot(metadata: .init(createdAt: Date(), callIdentificationCount: 1,
+                callBlockCount: 0, policy: .balanced), callIdentification: [.init(number: 12025550100, label: label)], callBlocking: [])
+            try snapshot.validate()
+            try files.publish(snapshot: snapshot)
+            XCTAssertEqual(try files.loadCurrent().callIdentification.first?.label, label)
+            var labels: [String] = []
+            try files.callDirectoryReader().streamIdentification { labels.append($0.label) }
+            XCTAssertEqual(labels, [label])
+        }
+        for label in ["", String(repeating: "a", count: 129), "Invalid\nlabel", "Invalid\u{0000}label"] {
+            let snapshot = ProtectionSnapshot(metadata: .init(createdAt: Date(), callIdentificationCount: 1,
+                callBlockCount: 0, policy: .balanced), callIdentification: [.init(number: 12025550100, label: label)], callBlocking: [])
+            XCTAssertThrowsError(try snapshot.validate())
+        }
+    }
+
     private let now = Date(timeIntervalSince1970: 1_790_985_600)
     private let number = "+12025550100"
     private func source(id: String = "publisher", family: String = "origin",

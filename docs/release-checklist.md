@@ -10,12 +10,12 @@ and no SMS-feed release gate. Historical SMS research is retained as retired
 context, not current product requirements. FTC complaint evidence supports call
 identification only; personal rules provide user-directed call blocking.
 
-## Device verification — pending until recorded
+## Device verification — partially recorded
 
 The [offline profiling harness](performance/offline-profiling.md) prepares
 isolated 50,000/250,000-entry component metrics and launch capture. Static
 preparation is not a physical measurement; normal-app Release traces, signing,
-Contacts and actual cellular acceptance remain separate. Device-only behavior remains unverified until recorded.
+Contacts and actual cellular acceptance remain separate. Recorded results are in [physical validation](performance/physical-validation-2026-10-05.md); the gates below remain open beyond those specific checks.
 
 - iPhone iOS 26 and 27: enable the Call Directory extension; receive a controlled
   call from an independently owned test caller, then verify actual behavior.
@@ -42,10 +42,10 @@ does not establish signed distribution or physical acceptance.
 - Core, hosted and UI tests pass for the intended release candidate; verify large
   text, light/dark and accessibility behavior. Automated audits do not establish
   VoiceOver speech, rotor or focus behavior.
-- FTC CSV access, parser compatibility, publisher watermarks and source rights
-  are demonstrated on-device. The host Swift full-refresh proof does not close
-  physical iPhone acceptance.
-- Choose signing team, verify App Group access on-device and extension receipts.
+- FTC download/import and publisher watermark were verified on-device with
+  259,721 accepted records. Preserve reviewed source rights and attribution.
+- Development signing, App Group access and native installation receipts were
+  verified on-device. Distribution signing remains a separate gate.
 - Prepare a current icon, native screenshots, public privacy/support URLs,
   collection answers, dataset attribution, commercial/age/export answers,
   metadata and a validated signed archive before distribution.

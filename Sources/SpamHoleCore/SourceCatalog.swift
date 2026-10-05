@@ -9,9 +9,7 @@ public enum SourceCatalog {
                           reviewedTrust: ReviewedSourceTrust(familyWeight: 1))]
 
     }
-    public static let releaseBlockers = [
-        "FTC downloads and complete refreshes still need physical iPhone network verification; a full host Swift import has been checked."
-    ]
+    public static let releaseBlockers: [String] = []
 
     /// Persisted settings and publisher payloads cannot install their own source approval.
     /// Approvals are reattached only for an exact bundled identifier/URL/format match.

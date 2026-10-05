@@ -210,14 +210,29 @@ public struct ProtectionSnapshot: Codable, Sendable, Equatable {
             throw SpamHoleCoreError.invalidSnapshot("Entry counts disagree with metadata")
         }
         let identified = callIdentification.map(\.number)
-        guard zip(identified, identified.dropFirst()).allSatisfy({ $0 < $1 }),
-              zip(callBlocking, callBlocking.dropFirst()).allSatisfy({ $0 < $1 }),
-              identified.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }),
-              callBlocking.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }),
-              Set(identified).isDisjoint(with: callBlocking),
-              callIdentification.allSatisfy({ !$0.label.isEmpty && $0.label.utf8.count <= 128
-                  && !$0.label.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }) else {
-            throw SpamHoleCoreError.invalidSnapshot("Entries must be valid, sorted, unique and disjoint")
+        guard zip(identified, identified.dropFirst()).allSatisfy({ $0 < $1 }) else {
+            throw SpamHoleCoreError.invalidSnapshot("Identification entries must be sorted and unique")
+        }
+        guard zip(callBlocking, callBlocking.dropFirst()).allSatisfy({ $0 < $1 }) else {
+            throw SpamHoleCoreError.invalidSnapshot("Blocking entries must be sorted and unique")
+        }
+        guard identified.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }) else {
+            throw SpamHoleCoreError.invalidSnapshot("Identification numbers must be valid")
+        }
+        guard callBlocking.allSatisfy({ $0 > 0 && (try? PhoneNormalizer.callDirectoryNumber("+\($0)")) == $0 }) else {
+            throw SpamHoleCoreError.invalidSnapshot("Blocking numbers must be valid")
+        }
+        guard Set(identified).isDisjoint(with: callBlocking) else {
+            throw SpamHoleCoreError.invalidSnapshot("Identification and blocking entries must be disjoint")
+        }
+        let controls = CharacterSet.controlCharacters
+        for entry in callIdentification {
+            guard !entry.label.isEmpty, entry.label.utf8.count <= 128 else {
+                throw SpamHoleCoreError.invalidSnapshot("Identification label length is invalid")
+            }
+            guard !entry.label.unicodeScalars.contains(where: { controls.contains($0) }) else {
+                throw SpamHoleCoreError.invalidSnapshot("Identification labels must not contain control characters")
+            }
         }
 
     }

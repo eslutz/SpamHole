@@ -153,7 +153,9 @@ final class AppModel {
                 try await callInstaller.install()
                 message = "iOS accepted a smaller protection database. Explicit rules keep priority."
             }
-            installed = try await pipeline.installationReceipt()
+            if let generationID = snapshot?.metadata.id {
+                installed = try await pipeline.installationReceipt(matching: generationID)
+            }
             if installed?.generationID != snapshot?.metadata.id {
                 message = "iOS completed the reload, but an installation receipt is unavailable. Installation is not yet verified."
                 return false

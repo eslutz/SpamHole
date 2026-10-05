@@ -16,6 +16,7 @@ jobs:
         with:
           persist-credentials: false
       - run: swift test
+      - run: swift test -c release
       - run: python3 -B spam_reputation_reference_20261003.py
       - run: python3 -B scripts/test-release-validation.py
       - run: python3 -B scripts/validate-site.py

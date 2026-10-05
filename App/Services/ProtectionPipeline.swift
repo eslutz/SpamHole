@@ -42,6 +42,19 @@ actor ProtectionPipeline {
         try files.loadInstallationReceipt()
     }
 
+    /// CallKit's app callback and the extension's atomic receipt write can race.
+    /// A timeout preserves the previous receipt; it never fabricates acceptance.
+    func installationReceipt(matching generationID: UUID, timeout: Duration = .seconds(2)) async throws -> CallInstallationReceipt? {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while true {
+            try Task.checkCancellation()
+            let receipt = try files.loadInstallationReceipt()
+            if receipt?.generationID == generationID || clock.now >= deadline { return receipt }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
     func contactNumbers() throws -> Set<String> {
         try Task.checkCancellation()
         return try ContactsProtection.numbers()

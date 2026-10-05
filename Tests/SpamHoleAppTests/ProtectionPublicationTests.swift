@@ -4,6 +4,37 @@ import SpamHoleCore
 
 @MainActor
 final class ProtectionPublicationTests: XCTestCase {
+    func testInstallationReceiptWaitsForExtensionAcknowledgement() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = SnapshotFiles(rootURL: root.appendingPathComponent("Protection"))
+        let pipeline = ProtectionPipeline(store: try EvidenceStore(url: root.appendingPathComponent("evidence.sqlite")), files: files)
+        let expected = CallInstallationReceipt(generationID: UUID(), installedAt: Date(), identificationCount: 1, blockingCount: 0)
+        let writer = Task {
+            try await Task.sleep(for: .milliseconds(100))
+            try files.writeInstallationReceipt(expected)
+        }
+        let receipt = try await pipeline.installationReceipt(matching: expected.generationID)
+        try await writer.value
+        XCTAssertEqual(receipt?.generationID, expected.generationID)
+    }
+
+    func testInstallationReceiptTimeoutPreservesLastGoodGeneration() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let files = SnapshotFiles(rootURL: root.appendingPathComponent("Protection"))
+        let pipeline = ProtectionPipeline(store: try EvidenceStore(url: root.appendingPathComponent("evidence.sqlite")), files: files)
+        let old = CallInstallationReceipt(generationID: UUID(), installedAt: Date(), identificationCount: 1, blockingCount: 0)
+        try files.writeInstallationReceipt(old)
+        let receipt = try await pipeline.installationReceipt(matching: UUID(), timeout: .milliseconds(100))
+        XCTAssertEqual(receipt?.generationID, old.generationID)
+        let cancelled = Task { try await pipeline.installationReceipt(matching: UUID()) }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; XCTFail("Cancelled receipt wait must stop") }
+        catch is CancellationError { }
+    }
+
     private func model() throws -> AppModel {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }

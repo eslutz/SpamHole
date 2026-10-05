@@ -14,7 +14,26 @@ The seventh test measures isolated empty-root application launch and verifies on
 
 Hosted fixture roots have unique `SpamHole-Performance-<UUID>` names under the test host's temporary directory. Teardown removes only the root created by that test. The harness directly calls local rebuild/load functions, never refresh/download, Contacts access or extension installation. Crash-interrupted fixture directories may remain in that isolated test container; remove only explicitly identified fixture directories, never the App Group or app installation.
 
-The app accepts `--ui-testing` and testing color flags only in Debug. Release forces `AppModel.testing` to false and registers normal background work regardless of supplied test flags. The performance scheme has no fixture injection into a Release app.
+The app accepts `--ui-testing` and testing color flags only in Debug. While the isolated test app is active, its idle timer is disabled to avoid auto-lock interrupting long audits. Normal use and Release retain system idle behavior. Release forces `AppModel.testing` to false and registers normal background work regardless of supplied test flags. The performance scheme has no fixture injection into a Release app.
+
+`SpamHoleDeviceAcceptance` is a separate opt-in UI scheme that launches the normal
+app container with only the Debug `--device-testing-keep-awake` flag. It captures public publisher health and
+protection status, preserves existing data, and never opens Contacts. Run only
+on an explicitly authorized development device. This flag changes only the active idle timer; Release ignores it. Its success does not establish
+an incoming-call outcome or a successful publisher download; inspect the recorded
+health and installation state separately. Keep attachments private because normal
+app and system captures can contain device or personal information.
+
+Its native block test requires an enabled extension, zero installed blocks and no
+existing rule for the reserved synthetic number. It removes only its own rule.
+Allow up to 15 minutes for a complete Debug FTC import: the earlier host import
+took 487 seconds, so a three-minute UI wait did not establish a stalled download.
+
+`SpamHoleReleaseProfiling` is opt-in. Select `DeviceSnapshotDiagnosticsTests` for
+read-only saved-generation size/load checks. Select one `ReleaseTraceSetupTests`
+method at a time to prepare Manual cadence from an observed Daily baseline, then
+restore Daily immediately after capture. Unexpected cadence is preserved. These
+tests access normal data and must never run in ordinary CI or on an unapproved device.
 
 Run from the repository root, substituting the verified device UDID and a fresh output directory:
 

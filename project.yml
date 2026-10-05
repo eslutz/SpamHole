@@ -97,6 +97,18 @@ targets:
     dependencies:
       - target: SpamHole
       - package: SpamHoleCore
+  SpamHoleDeviceDiagnosticsTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/SpamHoleDeviceDiagnosticsTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SPAMHOLE_BUNDLE_IDENTIFIER).DeviceDiagnosticsTests
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: SpamHole
+      - package: SpamHoleCore
 schemes:
   SpamHole:
     build:
@@ -140,3 +152,28 @@ schemes:
           selectedTests: [OfflineLaunchPerformanceTests]
     profile:
       config: Release
+  SpamHoleDeviceAcceptance:
+    build:
+      targets:
+        SpamHole: all
+        SpamHoleUITests: [test]
+    test:
+      config: Debug
+      gatherCoverageData: false
+      targets:
+        - name: SpamHoleUITests
+          selectedTests: [DeviceAcceptanceTests]
+  SpamHoleReleaseProfiling:
+    build:
+      targets:
+        SpamHole: all
+        SpamHoleUITests: [test]
+        SpamHoleDeviceDiagnosticsTests: [test]
+    test:
+      config: Release
+      gatherCoverageData: false
+      targets:
+        - name: SpamHoleDeviceDiagnosticsTests
+          selectedTests: [DeviceSnapshotDiagnosticsTests]
+        - name: SpamHoleUITests
+          selectedTests: [ReleaseTraceSetupTests]

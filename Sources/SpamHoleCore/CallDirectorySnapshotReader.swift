@@ -44,6 +44,7 @@ public struct CallDirectorySnapshotReader: Sendable {
         }
         var upcomingBlock = try nextBlock()
         var previous: Int64 = 0
+        let controls = CharacterSet.controlCharacters
         for _ in 0..<metadata.callIdentificationCount {
             let number = try readNumber(identification)
             guard number > previous else { throw invalid("Unsorted or duplicate call identification") }
@@ -54,7 +55,7 @@ public struct CallDirectorySnapshotReader: Sendable {
             let length = Int(lengthData.withUnsafeBytes { UInt16(littleEndian: $0.loadUnaligned(as: UInt16.self)) })
             guard (1...128).contains(length),
                   let label = String(data: try readExactly(identification, count: length), encoding: .utf8),
-                  !label.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+                  !label.unicodeScalars.contains(where: { controls.contains($0) }) else {
                 throw invalid("Invalid call identification label")
             }
             try body(.init(number: number, label: label))
