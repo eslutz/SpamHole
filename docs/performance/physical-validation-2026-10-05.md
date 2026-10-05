@@ -4,6 +4,24 @@ Test device: iPhone 18 Pro Max, iOS 27.0. These are development-signed local
 builds, not App Store or TestFlight acceptance. Raw logs, traces, signing settings,
 device identifiers and system screenshots remain private and outside Git.
 
+## Latest acceptance status
+
+| Item | Result | Evidence and limit |
+| --- | --- | --- |
+| Controlled incoming calls | Passed | Recipient-side baseline/block/allow observations and matching installation receipts; original rule state restored. |
+| Contacts transitions | Passed within recorded scope | Effective denied/limited/full access, fixture-cache installation, number-change notification and revocation; snapshot precedence checked in memory. Synthetic contacts/journal removed, preference restored, final access denied. |
+| Full consent automation | Unverified | Scoped handler compiles; final run had no pending consent prompt to tap. |
+| Physical VoiceOver | Waived | Explicit user waiver October 5; no physical speech/focus acceptance claimed. |
+| Release performance | Incomplete | Native Immediate CPU samples usable; Allocations, retained-memory assessment and repeated timing distributions deferred for device handoff. |
+| Final phone state | Restored | Clean normal Release installed and launched without test arguments; Daily cadence retained. |
+
+Final opt-in device-test build passed. Shared core tests passed in Debug and
+Release (52 tests each). The initial-denial navigation helper was updated to use
+the verified native locators and compiled; pristine permission state was not reset
+to rerun that initial prompt. The intended patch passed the secret scan and
+known-private-identifier check. The sections below preserve earlier checkpoints;
+this table supersedes their pending-state descriptions.
+
 ## Verified behavior
 
 - USB installation and normal App Group startup; Wi-Fi update installation after
@@ -78,3 +96,93 @@ change was inferred from that automation failure. Core regression checks passed
 all 52 tests in both Debug and Release, and all 15 hosted regressions passed.
 Daily refresh restoration passed. No temporary contacts or rules were created;
 Contacts and VoiceOver state remained unchanged. Raw evidence remains outside Git.
+
+## Native Instruments capture recovery
+
+On the same physical device, native Instruments Time Profiler in **Immediate**
+recording mode successfully captured and exported 4,337 CPU sample rows over an
+approximately 18-second launch recording. Developer Mode was already enabled,
+the phone was unlocked and attached over USB, and no phone permission or security
+setting was changed to obtain the trace. Previous command-line recordings used
+Deferred mode and were empty. This identifies a working alternative capture path,
+not a confirmed universal root cause for Deferred-mode failures.
+
+CPU acquisition is no longer blocked. Repeated launch/interaction measurements,
+SwiftUI analysis and a usable Allocations capture are still required for full
+performance acceptance. The raw successful trace remains private.
+
+The destination for controlled calls was confirmed privately. An initial call
+was not accepted as baseline evidence: recipient controls were not observed, and
+unknown-caller screening was active. The user disabled screening for subsequent
+controlled testing. The opt-in observer now queries iOS's incoming-call UI service
+and stores recipient evidence privately; call identity must be checked separately
+before interpreting its result. Contacts transitions are now authorized with
+access denied afterward; that authorization is not a completed test.
+
+## Earlier controlled-call retry and Contacts progress
+
+After the user disabled unrelated unknown-caller screening, the controlled
+baseline call passed recipient-side observation. The personal-block/personal-allow
+cycle also passed: each rule waited for its matching installed receipt, the
+blocked call exposed no incoming-call controls during the bounded observation
+window, and the allowed call displayed recipient controls for the verified owned
+caller. Caller identity was checked privately against the captured recipient UI.
+The test removed its temporary rule and verified the installed zero-block baseline.
+These results establish the observed call behavior, not voicemail routing.
+
+The native Contacts denial flow succeeded after waiting for the startup rebuild
+to enable Settings controls. The subsequent native Settings navigation failed,
+so limited/full access, modifications and revocation remain open. No synthetic
+contacts were created. A read-only native Settings inspection is pending device
+readiness; the authorized final permission state is denied. Raw call and permission
+attachments, runtime caller configuration and destination details remain private.
+
+## Contacts transition session
+
+Two uniquely named reserved-number contacts were subsequently created using a
+Debug-only normal-process harness and a private cleanup journal. Effective Full
+access exposed both fixtures; Limited access selected only fixture A and excluded
+B. The limited fixture set reached the app's protected-contact cache and a
+completed installation. Modifying A's number in the settled running app exercised
+the existing contact-change notification: the old number disappeared, the new
+number entered protection, and installation completed. Native revocation removed
+fixture protection after return/relaunch and completed installation. An isolated
+in-memory reputation/rule check also passed with effective denied access.
+
+Some Full Access attempts selected the Settings row but left a separate system
+consent sheet pending. The app correctly continued to report denied access; this
+does not establish an application refresh defect or a hosted-test attribution
+problem. The user accepted some initial consent sheets. Automation now targets
+the active consent host, including Apple's FullAccessSettingsPromptExtension,
+but the final verification run encountered no pending sheet. Effective Full access
+passed; an automated consent tap was not observed and is not claimed as verified.
+Settings also crashed once during limited-picker navigation; a bounded retry
+selected the synthetic contact successfully.
+
+The later effective Full-access inspection passed, including the isolated
+in-memory reputation/rule precedence assertions for the accessible fixtures.
+Deletion then passed: only the two journal-owned synthetic contacts were removed,
+the private journal was deleted, and fixture protection returned to zero. The
+original disabled Contacts-protection preference and native None access were
+restored by passing device tests. The final effective denied-access check passed with zero fixture membership and
+contact protection disabled. No additional real caller
+rules were changed.
+
+A clean normal Release build passed and contains only the Call Directory extension,
+with no test bundles. The Contacts harness/overlay strings are absent from the
+Release executable. It subsequently replaced the development app on the phone; native installation
+and launch both succeeded, with no test arguments.
+VoiceOver remains unchanged; an alternate native capture attempt timed out, and
+available capture-source metadata did not expose a verified internal speech path.
+Allocations and repeated Release timing measurements remain open. Daily cadence
+was not changed during this Contacts session and retains the previously verified
+restoration.
+
+## Time-bounded device handoff
+
+On October 5, 2026, the user waived physical VoiceOver testing and requested the
+phone be available within 15 minutes. VoiceOver is waived, not passed; its setting
+was not changed. Cleanup, permission/preference restoration and normal Release
+installation take priority. Longer Allocations and repeated timing distributions
+are deferred and remain unverified. No production-readiness claim follows from
+this waiver.

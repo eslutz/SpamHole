@@ -81,3 +81,34 @@ the recording as evidence. A saved trace or successful workload alone does not
 establish performance acceptance. The read-only device diagnostics also provide
 `testContactsPermissionBaselineWithoutRequestingAccess`; it reports only the
 authorization enum and never requests access or enumerates contacts.
+
+If Deferred command-line captures export empty CPU tables, try native Instruments
+Time Profiler with **Immediate** recording, targeting the installed normal Release
+app on the physical phone. Verify a nonempty exported `time-sample` table before
+longer workloads. This recovered CPU acquisition on the October 5 test device;
+it does not establish that every empty recording has the same cause.
+
+`DeviceAcceptanceTests/testObserveControlledIncomingCall` announces observer
+readiness before an agent places a separately authorized owned-caller test call.
+It observes recipient call controls through InCallService and requires the agent
+to hang up. Its hierarchy and screenshot attachments contain private device data
+and must stay outside Git. Match the captured caller identity privately; a button
+observation alone is not proof of the intended caller or blocking effectiveness.
+
+The observer requires `SPAMHOLE_CONTROLLED_CALL_OBSERVATION=1`; the separate
+block/allow cycle accepts the privately configured `SPAMHOLE_CONTROLLED_CALLER`.
+Keep the configuration outside the repository. Contacts methods require
+`SPAMHOLE_DEVICE_CONTACTS_TESTING=1`. Select one method at a time; never run a
+whole device acceptance class with mutation flags enabled.
+
+The Debug-only `--device-contacts-acceptance` harness runs in the normal app
+process to verify effective permission independently of the Settings selection.
+Selecting Full Access can leave a separate consent sheet pending; selection alone
+is not proof of an effective grant. Commands are `inspect`, `create`, `modify`, and
+`delete`; the UI test supplies a separately reviewed expected result. It reports
+only the authorization enum and membership of three reserved numbers. A private
+Application Support journal records the two fixture identities before saving.
+Cleanup requires full access, validates both names against the journal, deletes
+only those identities and removes the journal. Restore the authorized final
+permission through native Settings afterward. If cleanup fails, stop subsequent
+tests. The harness and its result overlay are excluded from Release.

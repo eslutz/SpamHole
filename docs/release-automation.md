@@ -47,7 +47,10 @@ The Pages workflow deploys that folder alone, never the complete `docs/` tree.
 It runs on relevant main-branch changes or manual workflow dispatch. Public
 support uses GitHub issues; security vulnerabilities use private reporting.
 
-Physical cellular callbacks, VoiceOver behavior, Contacts permissions and device
-performance remain pending a connected phone. No user-led checklist is required.
+Physical controlled calls and Contacts transitions now have recorded device
+evidence in [physical validation](performance/physical-validation-2026-10-05.md).
+The user waived physical VoiceOver testing; it is not marked passed. Release CPU
+capture is usable, while Allocations and repeated timing distributions remain
+open. No user-led checklist is required.
 Final submission review and signed distribution remain separate gates. The
 call-only product has no SMS-feed requirement or message access.

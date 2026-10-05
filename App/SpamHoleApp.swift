@@ -8,6 +8,9 @@ struct SpamHoleApp: App {
     @UIApplicationDelegateAdaptor(BackgroundDelegate.self) private var delegate
     @Environment(\.scenePhase) private var scenePhase
     @State private var model: AppModel?
+    #if DEBUG
+    @State private var contactsAcceptanceResult: String?
+    #endif
     private let startupError: String?
     private let testingColorScheme: ColorScheme?
     private let keepAwakeForTesting: Bool
@@ -55,6 +58,36 @@ struct SpamHoleApp: App {
                     .tint(Color("ActionAccent"))
                     .preferredColorScheme(testingColorScheme)
                     .task { await model.becomeActive() }
+                    #if DEBUG
+                    .overlay(alignment: .top) {
+                        if let contactsAcceptanceResult {
+                            VStack {
+                                Text(contactsAcceptanceResult).accessibilityIdentifier("device.contacts.result")
+                                Text(model.deviceContactAcceptanceMembership).accessibilityIdentifier("device.contacts.cached")
+                                Text("enabled=\(model.settings.contactProtection);testing=\(model.testing);working=\(model.isWorking)")
+                                    .accessibilityIdentifier("device.contacts.context")
+                                Button("Modify fixture A") {
+                                    Task {
+                                        self.contactsAcceptanceResult = await Task.detached {
+                                            do { return try DebugContactsAcceptance.run("modify") }
+                                            catch { return "Contacts acceptance command failed" }
+                                        }.value
+                                    }
+                                }.accessibilityIdentifier("device.contacts.modify")
+                            }
+                        }
+                    }
+                    .task {
+                        let arguments = ProcessInfo.processInfo.arguments
+                        if let index = arguments.firstIndex(of: "--device-contacts-acceptance"), arguments.indices.contains(index + 1) {
+                            let action = arguments[index + 1]
+                            contactsAcceptanceResult = await Task.detached {
+                                do { return try DebugContactsAcceptance.run(action) }
+                                catch { return "Contacts acceptance command failed" }
+                            }.value
+                        }
+                    }
+                    #endif
                     .onChange(of: scenePhase) { _, phase in
                         #if DEBUG
                         UIApplication.shared.isIdleTimerDisabled = keepAwakeForTesting && phase == .active

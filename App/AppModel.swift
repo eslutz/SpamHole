@@ -30,6 +30,12 @@ final class AppModel {
     }
     private var loadedSavedSnapshot = false
     private var protectedContacts: Set<String> = []
+    #if DEBUG
+    var deviceContactAcceptanceMembership: String {
+        ["+12025550191", "+12025550192", "+12025550193"]
+            .map { protectedContacts.contains($0) ? "1" : "0" }.joined()
+    }
+    #endif
     private var rebuildPending = false
 
     init(rootURL: URL, testing: Bool = false) throws {

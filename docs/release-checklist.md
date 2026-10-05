@@ -17,8 +17,10 @@ isolated 50,000/250,000-entry component metrics and launch capture. Static
 preparation is not a physical measurement; normal-app Release traces, signing,
 Contacts and actual cellular acceptance remain separate. Recorded results are in [physical validation](performance/physical-validation-2026-10-05.md); the gates below remain open beyond those specific checks.
 
-- iPhone iOS 26 and 27: enable the Call Directory extension; receive a controlled
-  call from an independently owned test caller, then verify actual behavior.
+- iPhone iOS 27: controlled baseline delivery, personal-block suppression and
+  personal-allow delivery passed on the connected device, with installation
+  receipts and recipient-side observation. The original rule state was restored.
+  This does not establish iOS 26 or TestFlight behavior.
 - Full and incremental call reloads, duplicate rejection, label changes, rules,
   extension disabled/error recovery, and readable installation receipts.
 - Benchmark 250,000 identification and 25,000 blocking entries; exercise fallback
@@ -28,8 +30,12 @@ Contacts and actual cellular acceptance remain separate. Recorded results are in
 - Disable background refresh, disconnect network, and age evidence. Verify stale
   warnings and removal on the next successful run/reload. Do not claim guaranteed
   Call Directory expiry.
-- Contacts denied, limited, granted, modified, and revoked; manual rules remain
-  effective with the documented precedence.
+- Contacts denied, limited, full, modification and revocation were exercised on
+  the physical iOS 27 device. Fixture cache and completed installations passed;
+  reputation suppression and rule precedence passed using isolated in-memory
+  synthetic snapshots. Fixtures were removed, original protection preference
+  restored and access left denied as authorized. Automated Full-consent tapping
+  remains unverified.
 - Verify app/extension traffic contains no incoming numbers, contact data,
   or lookup-based requests.
 
@@ -41,7 +47,8 @@ does not establish signed distribution or physical acceptance.
 
 - Core, hosted and UI tests pass for the intended release candidate; verify large
   text, light/dark and accessibility behavior. Automated audits do not establish
-  VoiceOver speech, rotor or focus behavior.
+  VoiceOver speech, rotor or focus behavior. Physical VoiceOver testing was waived
+  by the user on October 5, 2026; it is not recorded as passed.
 - FTC download/import and publisher watermark were verified on-device with
   259,721 accepted records. Preserve reviewed source rights and attribution.
 - Development signing, App Group access and native installation receipts were
