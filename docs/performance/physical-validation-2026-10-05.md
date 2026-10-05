@@ -14,7 +14,7 @@ device identifiers and system screenshots remain private and outside Git.
 | Physical VoiceOver | Waived | Explicit user waiver October 5; no physical speech/focus acceptance claimed. |
 | Native extension disable/re-enable | Passed | Physical native switch changed only for SpamHole; disabled status and preserved receipt verified, then enabled status and completed installation verified. Cleanup confirmed enabled protection. |
 | Release performance | Incomplete | Twenty measured interaction cycles returned app memory, CPU and clock samples with low host overhead. Small continued physical-memory growth leaves retained-memory acceptance open; separate workflow timings are recorded below. |
-| Final phone state | Restoration partly pending | Clean normal Release reinstalled after lightweight measurements. Cadence is temporarily Manual; restoring Daily and final launch require an unlocked device. |
+| Final phone state | Restored | Final Daily cadence restoration passed; clean normal Release reinstalled and launched without test arguments. No test or trace remains active. |
 
 Final opt-in device-test build passed. Shared core tests passed in Debug and
 Release (52 tests each). The initial-denial navigation helper was updated to use
@@ -311,3 +311,32 @@ those methods. No device test or trace remains active. The clean normal Release
 app was reinstalled; restoring the original Daily cadence and final foreground
 launch remain pending an unlock. Do not start another profiling workload before
 resolving that restoration or explicitly continuing the authorized Manual session.
+
+## Final timing and restoration completion
+
+The final unlocked-device run completed all four short timing tests and Daily
+cadence restoration in one serial session. Host test/service RSS peaked at
+182 MiB without a resource cutoff. Each timing has three measured repetitions
+after the discarded warm-up.
+
+| Operation | Recorded seconds |
+| --- | --- |
+| Responsive first-frame process launch, dedicated XCTest launch metric | 0.385, 0.399, 0.380 |
+| Launch plus screen check, automation clock | 2.523, 2.533, 2.529 |
+| Repeated synthetic Lookup button/result workflow | 1.821, 1.809, 1.804 |
+| Rule-sheet presentation and cancellation workflow | 3.966, 3.929, 3.971 |
+| Scroll up/down workflow | 2.473, 2.459, 2.444 |
+
+Moving termination outside the measured launch interval and using the responsive
+launch metric yielded actual `ApplicationFirstFramePresentationResponsive`
+samples. These are process relaunches with existing saved data and warm OS caches,
+not storage-cache-cold launch measurements. Other clock totals include XCTest
+event synthesis and readiness checks; they do not measure rendering latency.
+Foreground/warm rebuild workflow measurements remain recorded separately above.
+
+Daily restoration passed. The clean normal Release app was installed and launched
+successfully without test arguments; an initial launch-command option-order error
+was corrected immediately. No temporary contacts or call rules were created.
+All device tests and captures are stopped, and the phone is free to disconnect.
+Small continued physical-memory growth and isolated engine/main-thread attribution
+remain open; this wrap-up does not turn those limits into a performance pass.

@@ -32,8 +32,10 @@ Contacts and actual cellular acceptance remain separate. Recorded results are in
   and separate foreground rebuild workflow measurements are recorded. Lightweight
   XCTest metrics stayed within host resource limits. Small continued physical-
   memory growth leaves retained-memory acceptance open; isolated engine rebuild
-  attribution and separate launch/interaction timing distributions also remain
-  open. Automation clock totals do not establish app-launch or rendering latency.
+  attribution remain open. Three-repetition responsive first-frame process launch
+  samples and separate Lookup/scroll/rule-sheet workflow timings are recorded.
+  Launches used warm OS caches; automation clock totals do not establish rendering
+  latency. Final Daily restoration and normal Release installation/launch passed.
 - Interrupt download, import, publication, and installation individually. Confirm
   atomic recovery and distinction between computed and installed generations.
 - Disable background refresh, disconnect network, and age evidence. Verify stale
