@@ -1,4 +1,4 @@
-# V1 release gates
+# Release gates
 
 This records technical release gates. A public source repository does not
 establish App Store release readiness.
@@ -7,8 +7,25 @@ establish App Store release readiness.
 
 The user retired SMS filtering on October 4, 2026. The app has no message access
 and no SMS-feed release gate. Historical SMS research is retained as retired
-context, not current product requirements. FTC complaint evidence supports call
-identification only; personal rules provide user-directed call blocking.
+context, not current product requirements. Version 2 uses FTC complaint evidence
+for local-inference automatic blocking after one-time activation; personal rules
+are overrides. See [the inference policy](local-blocking.md).
+
+## Version 2 automatic blocking — open acceptance gates
+
+- Prove reputation-generated incoming-call suppression with no personal Block,
+  then personal Allow recovery, using an isolated Release container and a matching
+  installation receipt. Earlier personal-rule call tests do not clear this gate.
+- Record actual FTC aggregate score distributions and block counts for all three
+  policies; synthetic arithmetic and real-data counts do not establish accuracy.
+- Evaluate independent, rights-cleared labelled call evidence for false positives.
+  FTC complaint membership cannot serve as its own ground truth. No suitable
+  labelled evaluation dataset is currently configured.
+- Apple's guideline 2.5.12 requires confirmed spam. The local-inference model has
+  no App Review acceptance; neither user activation nor a disclaimer establishes
+  compliance. Do not represent the development build as approved for distribution.
+- Preserve one-time upgrade review, source-authority boundaries, old-backup
+  decoding and computed-versus-installed counts. See [version 2 validation](validation/local-blocking-v2.md).
 
 ## Device verification — partially recorded
 

@@ -1,6 +1,6 @@
 # Privacy policy — SpamHole development version
 
-Reviewed October 4, 2026. Public static policy and support pages are maintained
+Reviewed October 5, 2026. Public static policy and support pages are maintained
 in [`site/privacy.html`](site/privacy.html) and [`site/support.html`](site/support.html). This policy describes
 the development source and must be rechecked against the distributed binary.
 
@@ -35,7 +35,9 @@ User-requested rule backup contains personal telephone numbers, rule details
 (including saved correction notes), and settings. It excludes contacts, source
 subscriptions, credentials, and downloaded evidence. The user chooses where to
 save or share it, including any cloud destination. A successful import replaces
-personal rules and settings and leaves Contacts protection off. New exports use
+personal rules and settings and leaves Contacts protection off. An inactive
+installation remains inactive even if the backup enabled automatic blocking;
+review the locally generated list to activate it. New exports use
 schema version 2 and contain call rules only. Legacy version 1 backups retain
 valid telephone-number call rules and convert the call portion of former combined
 rules; message-only rules are omitted, and converted/omitted counts are shown.

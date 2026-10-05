@@ -73,7 +73,9 @@ struct SourceDetailView: View {
                     if let error = state?.error { Text(error).foregroundStyle(Color("WarningText")) }
                 }
                 ReadableSection("Authority") {
-                    Text("Identification evidence only. This source does not authorize automatic blocking.")
+                    Text(source.reviewedTrust?.localInferenceEligible == true
+                        ? "Reviewed for local-inference blocking. Reports are unverified; the selected policy computes eligibility on this device."
+                        : "Identification evidence only. This source is not reviewed for automatic local blocking.")
                     Text("Refreshing an unchanged list does not make its allegations new. Mirrors do not add independent corroboration.")
                         .font(.footnote).foregroundStyle(Color("SecondaryText"))
                 }

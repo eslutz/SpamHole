@@ -177,10 +177,11 @@ public enum SourceAdapters {
         guard rows.count <= maximumRecords + 1 else { throw SourceImportError.tooManyRecords }
         var dated: [(id: String, number: String, reported: Date, observed: Date?, reportedLiteral: String, observedLiteral: String)] = []
         var rejected = 0
+        let dates = SourceDateParser()
         for row in rows.dropFirst() where !row.allSatisfy({ $0.isEmpty }) {
             guard row.count == header.count else { throw SourceImportError.invalidSchema("FTC CSV row width changed.") }
-            guard let number = normalize(row[phoneIndex], channel: .call), let reported = parseDate(row[reportedIndex]) else { rejected += 1; continue }
-            let observed = parseDate(row[observedIndex])
+            guard let number = normalize(row[phoneIndex], channel: .call), let reported = dates.parse(row[reportedIndex]) else { rejected += 1; continue }
+            let observed = dates.parse(row[observedIndex])
             guard reported <= now.addingTimeInterval(300), observed.map({ $0 <= reported }) ?? true else { rejected += 1; continue }
             // No public complaint ID is supplied in daily CSV. Identical complete rows are one evidence item,
             // including across daily files/mirrors. Keep every original field in this stable identity.
@@ -202,15 +203,7 @@ public enum SourceAdapters {
     }
 
     public static func parseDate(_ text: String) -> Date? {
-        let fractional = ISO8601DateFormatter(); fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = fractional.date(from: text) ?? ISO8601DateFormatter().date(from: text) { return date }
-        let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0); formatter.isLenient = false
-        for format in ["yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy"] {
-            formatter.dateFormat = format
-            if let date = formatter.date(from: text) { return date }
-        }
-        return nil
+        SourceDateParser().parse(text)
     }
     private static func validateWatermark(_ watermark: Date, now: Date) throws {
         guard watermark <= now.addingTimeInterval(300) else { throw SourceImportError.futureDate }
@@ -220,6 +213,34 @@ public enum SourceAdapters {
         guard !["", "none", "null", "n/a", "unknown", "anonymous"].contains(trimmed.lowercased()) else { return nil }
         guard channel == .call else { return nil }
         return try? PhoneNormalizer.e164(trimmed)
+    }
+}
+
+/// Per-import ownership avoids global mutable formatters and repeated ICU setup per row.
+private final class SourceDateParser {
+    private let fractional = ISO8601DateFormatter()
+    private let internet = ISO8601DateFormatter()
+    private let formats: [DateFormatter]
+
+    init() {
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        formats = ["yyyy-MM-dd'T'HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd", "MM/dd/yyyy HH:mm:ss", "MM/dd/yyyy"].map { format in
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.isLenient = false
+            formatter.dateFormat = format
+            return formatter
+        }
+    }
+
+    func parse(_ text: String) -> Date? {
+        guard !text.isEmpty else { return nil }
+        if let date = fractional.date(from: text) ?? internet.date(from: text) { return date }
+        for formatter in formats {
+            if let date = formatter.date(from: text) { return date }
+        }
+        return nil
     }
 }
 

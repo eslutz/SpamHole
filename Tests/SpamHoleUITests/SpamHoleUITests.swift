@@ -2,6 +2,62 @@ import XCTest
 
 @MainActor
 final class SpamHoleUITests: XCTestCase {
+    func testAutomaticBlockingRequiresReviewAndShowsComputedCounts() {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-local-blocking"]
+        app.launch()
+        defer { app.terminate() }
+        completeOnboarding(in: app)
+        let review = app.buttons["blocking.review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        review.tap()
+        let count = app.staticTexts["blocking.previewCount"]
+        XCTAssertTrue(count.waitForExistence(timeout: 5))
+        XCTAssertTrue(count.label.contains("2"))
+        app.buttons["blocking.activate"].tap()
+        let computed = app.descendants(matching: .any)["blocking.computedAutomatic"]
+        XCTAssertTrue(computed.waitForExistence(timeout: 5))
+        XCTAssertTrue(computed.label.contains("2"))
+        app.tabBars.buttons["Settings"].tap()
+        let toggle = app.switches["blocking.enabled"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertEqual(toggle.value as? String, "1")
+        scrollIntoView(toggle, in: app)
+        // SwiftUI exposes both the whole labelled row and its native switch.
+        toggle.switches.firstMatch.tap()
+        let disabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == '0'"), object: toggle)
+        XCTAssertEqual(XCTWaiter.wait(for: [disabled], timeout: 5), .completed)
+        app.tabBars.buttons["Protection"].tap()
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(computed.label.contains("0"))
+    }
+
+    func testAutomaticReviewCancelAtLargestTextInDarkMode() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--ui-testing-local-blocking", "--ui-testing-dark",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+        app.launch()
+        defer { app.terminate() }
+        completeOnboarding(in: app)
+        let review = app.buttons["blocking.review"]
+        scrollIntoView(review, in: app)
+        XCTAssertTrue(review.isHittable)
+        review.tap()
+        let count = app.staticTexts["blocking.previewCount"]
+        scrollIntoView(count, in: app)
+        XCTAssertTrue(count.isHittable)
+        XCTAssertTrue(count.label.contains("2"))
+        capture(app, "automatic-blocking-review-largest-dark")
+        app.buttons["Cancel"].tap()
+        let computed = app.descendants(matching: .any)["blocking.computedAutomatic"]
+        scrollIntoView(computed, in: app)
+        XCTAssertTrue(computed.label.contains("0"))
+        app.tabBars.buttons["Settings"].tap()
+        let toggle = app.switches["blocking.enabled"]
+        scrollIntoView(toggle, in: app)
+        XCTAssertEqual(toggle.value as? String, "0")
+    }
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }

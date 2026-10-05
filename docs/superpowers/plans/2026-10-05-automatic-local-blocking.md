@@ -18,28 +18,28 @@ Precedence: Allow, personal Block, protected Contacts, automatic policy. Capacit
 
 ### Task 1: Core inference and exports
 
-- [ ] Add failing FTC-only, policy nesting, preview, expiry, override and capacity tests.
-- [ ] Add compatible settings/source eligibility, optional assessment decisions and scoring/count metadata. Missing activation decodes false; missing eligibility decodes false. Binary formats stay unchanged.
-- [ ] Compute eligible-source inference and export automatic blocks when activated; explain all exclusions. Recompute older generations from evidence.
-- [ ] Add version 2 reference fixtures/parity and run `swift test --jobs 2` plus both Python references.
+- [x] Add failing FTC-only, policy nesting, preview, expiry, override and capacity tests.
+- [x] Add compatible settings/source eligibility, optional assessment decisions and scoring/count metadata. Missing activation decodes false; missing eligibility decodes false. Binary formats stay unchanged.
+- [x] Compute eligible-source inference and export automatic blocks when activated; explain all exclusions. Recompute older generations from evidence.
+- [x] Add version 2 reference fixtures/parity and run `swift test --jobs 2` plus both Python references.
 
 ### Task 2: Activation and product UI
 
-- [ ] Add hosted regressions for activation, policy changes, disabling and receipt preservation.
-- [ ] Add one-time review sheet, off switch and setup path. Counts must distinguish eligibility, computed blocks and receipt-verified installed blocks. Show source eligibility and Lookup decision reasons.
-- [ ] Run affected hosted and UI tests serially. Do not confuse simulator with incoming-call acceptance.
+- [x] Add hosted regressions for activation, policy changes, disabling and receipt preservation.
+- [x] Add one-time review sheet, off switch and setup path. Counts must distinguish eligibility, computed blocks and receipt-verified installed blocks. Show source eligibility and Lookup decision reasons.
+- [x] Run affected hosted and UI tests serially. Do not confuse simulator with incoming-call acceptance.
 
 ### Task 3: Evidence and documentation
 
-- [ ] Evaluate actual FTC data privately; publish only aggregate score distributions and per-policy counts, never numbers or raw data. Do not lower thresholds to manufacture counts.
-- [ ] Update source, website, onboarding, README, App Review and release descriptions. Add labelled-data quality gate: FTC membership is not ground truth.
-- [ ] Test site and packaging rejection logic; add version 2 reference parity to CI.
+- [x] Evaluate actual FTC data privately; publish only aggregate score distributions and per-policy counts, never numbers or raw data. Do not lower thresholds to manufacture counts.
+- [x] Update source, website, onboarding, README, App Review and release descriptions. Add labelled-data quality gate: FTC membership is not ground truth.
+- [x] Test site and packaging rejection logic; add version 2 reference parity to CI.
 
 ### Task 4: Verification and delivery
 
-- [ ] Run core in Debug/Release, affected hosted/UI, parity, packaging/site checks, secret scan and fresh review. Use bounded serial builds within host disk/RAM limits.
-- [ ] Physical acceptance uses an isolated Release container and authorized caller: inferred block without personal Block, Allow recovery and cleanup. Record blocked if a phone/observer is unavailable; no manual checklist or substitute simulator acceptance. VoiceOver remains waived.
-- [ ] Commit and push sanitized changes. Automatic installation acceptance, independent labelled-data quality, retained-memory stability and App Store acceptance remain separate gates.
+- [x] Run core in Debug/Release, affected hosted/UI, parity, packaging/site checks, secret scan and fresh review. Use bounded serial builds within host disk/RAM limits.
+- [x] Physical acceptance uses an isolated Release container and authorized caller: inferred block without personal Block, Allow recovery and cleanup. Record blocked if a phone/observer is unavailable; no manual checklist or substitute simulator acceptance. VoiceOver remains waived.
+- [x] Commit and push sanitized changes. Automatic installation acceptance, independent labelled-data quality, retained-memory stability and App Store acceptance remain separate gates.
 
 ## Review focus
 
@@ -48,3 +48,10 @@ Forged catalog approvals; source coverage ageing without a network refresh; lega
 ## Distribution constraint
 
 FTC reports are unverified. The selected local-inference model replaces the research's separate confirmation requirement; it does not establish compliance with Apple's confirmed-spam requirement or public-release readiness. Do not fabricate confirmation or hide this open gate.
+
+## Execution status
+
+Core, activation/UI, actual-data evaluation and unsigned packaging are verified.
+Physical automatic-call acceptance was recorded blocked because the phone was
+locked; no phone state was modified. Independent accuracy, retained-memory
+stability and distribution remain open. See `docs/validation/local-blocking-v2.md`.

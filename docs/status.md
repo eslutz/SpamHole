@@ -1,42 +1,35 @@
 # Development status
 
-SpamHole is an open-source, call-only development application, not a
-production-approved App Store release. Personal call allow/block rules, local
-snapshots, call identification, source refresh and the Call Directory extension
-are implemented. The user retired SMS filtering on October 4, 2026; there is no
-message access or SMS-feed release requirement.
+SpamHole is a call-only, open-source development application. Version 2 restores
+the intended workflow: download free FTC complaint evidence, calculate reputation
+locally, apply Conservative, Balanced or Aggressive, and generate automatic iOS
+Call Directory blocks. Users review once before activation; later updates use the
+saved policy. Personal Allow/Block rules and accessible Contacts provide overrides.
+SMS filtering was retired on October 4, 2026.
 
-FTC allegations support neutral identification, not automatic blocking. A
-complete 24-shard FTC refresh was verified on this host through the actual Swift
-downloader and SQLite store. Physical verification on October 5 confirmed a completed
-phone import with 259,721 records, enabled Call Directory, and a matching installation
-receipt for 52 identification entries. A reserved synthetic personal block was installed
-and removed with verified receipts, restoring zero blocking entries. These receipts do
-not establish actual incoming-call outcomes. See the [dated FTC report](research/ftc-source-availability-2026-10-04.md).
+FTC allegations remain unverified. The local inference index is neither a
+probability nor confirmation. The selected model replaces V1's confirmation gate;
+it does not establish accuracy or App Store acceptance. Custom sources cannot
+self-authorize blocking. See [the policy](local-blocking.md) and
+[version 2 validation](validation/local-blocking-v2.md).
 
-On October 4, 2026, development-signed installation and update over Wi-Fi were
-verified on an iPhone 18 Pro Max running iOS 27. All 22 hosted/UI device tests and
-seven isolated Debug performance tests passed; 51 core tests passed on the host.
-These suites bypass real Call Directory installation. At 250,000 synthetic
-entries, snapshot load averaged 1.45 seconds and rebuild 9.88 seconds. The rebuild
-harness recorded a 1,156 MiB whole-process peak, including fixture/setup effects;
-Release allocation tracing remains necessary.
+The prior phone import accepted 259,721 records and installed 52 identification
+entries. V1 exported zero automatic blocks. Those historical counts do not describe
+V2's generated blocklist. Earlier physical baseline/personal Block/personal Allow
+calls, native extension recovery and synthetic Contacts transitions passed on
+one iOS 27 device. They do not prove V2 reputation-generated call suppression.
 
-Release testing found valid labels were rejected by nested control-character
-predicates. Explicit validation fixes both saved JSON and binary call exports;
-52 core tests now pass in Debug and Release, and the physical Release app reads
-its saved 226,265 assessments. CI includes optimized core tests. See the
-[physical validation summary](performance/physical-validation-2026-10-05.md).
+The fresh October 5 host evaluation accepted 281,214 FTC records, scored 244,426
+numbers, and generated 2 Conservative, 4 Balanced or 8 Aggressive automatic
+blocks without personal rules or Contacts. These counts are host-computed, not
+installed on the phone, and do not establish accuracy. Both core configurations,
+affected hosted/UI tests and unsigned Release packaging passed; see the version 2
+validation report for exact scope.
+Physical VoiceOver testing was waived, not passed.
 
-Normal Release interaction testing subsequently passed three process launches and
-20 additional Lookup/scrolling/sheet cycles, plus three Home/foreground cycles.
-Physical Contacts authorization was
-read without requesting access; it remains not determined. Follow-up CPU traces
-were empty and the allocation capture had no allocation tables, so functional
-interaction success does not close performance acceptance.
-
-Physical calls, Contacts changes, native extension capacity, Release performance,
-VoiceOver behavior, signed archive validation and distribution remain release gates. See
-[release requirements](release-checklist.md) and [source qualification](sources.md).
-Private operational reports and raw captures remain local; they are not included
-as public release proof. Contributors should rerun tests for their checkout.
+Release memory profiling found small continued growth across twenty interaction
+cycles; [issue 1](https://github.com/eslutz/SpamHole/issues/1) remains open. Signed
+archive/TestFlight distribution, independent labelled-data accuracy and Apple's
+confirmed-spam requirement remain separate release gates. Public source availability
+and simulator tests do not establish production readiness. See
+[release requirements](release-checklist.md).

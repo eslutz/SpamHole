@@ -4,11 +4,13 @@ An offline iPhone call-reputation and call-blocking app. Publishers supply
 downloaded evidence; reputation and matching stay on your device. There are no
 incoming-call lookups, accounts, ads, or telemetry. SpamHole has no access to messages.
 
-**Development build. Physical-call acceptance, VoiceOver, signing and
-distribution review remain open; see `docs/release-checklist.md`.**
-Personal call rules provide explicit allow/block control. FTC complaints support
-call identification, not automatic blocking. A high association index is not a
-probability or proof of genuine origination.
+**Development build. Version 2 automatic-call acceptance, classification quality,
+retained-memory stability and distribution review remain open; see `docs/release-checklist.md`.**
+SpamHole downloads FTC evidence, computes reputation locally, and generates an
+automatic blocklist using Conservative, Balanced or Aggressive. Review the local
+count once to activate; subsequent refreshes update the list automatically.
+Personal Allow/Block rules are overrides. FTC reports are unverified; the indices
+are heuristics, not probabilities or proof of genuine origination.
 
 ## Build
 
@@ -35,7 +37,8 @@ Run the shared-engine tests with workspace-local caches:
 
 ```sh
 swift test --scratch-path .build --cache-path .build/cache
-python3 -B spam_reputation_reference_20261003.py
+python3 -B spam_reputation_reference_20261003.py  # historical version 1
+python3 -B scripts/local-inference-reference.py  # production version 2
 ```
 
 ## Design
@@ -50,10 +53,13 @@ Downloads, computed snapshots, and successful iOS installations are distinct
 states. Background updates are best-effort. Installed Call Directory entries
 cannot expire until a successful reload; stale state is visible in the app.
 
-The original Python model and worked examples are retained as numerical fixtures.
-The coefficients are proposed heuristics, not empirically calibrated estimates.
-Only maintainer-reviewed source authority can authorize automatic call blocking;
-custom feeds cannot promote their own allegations to confirmations.
+The original confirmation-gated Python model is retained as historical version 1.
+Production uses the [version 2 local-inference policy](docs/local-blocking.md),
+with independent numerical fixtures. Coefficients are proposed heuristics, not
+empirically calibrated estimates. Only catalog-reviewed sources contribute to
+local blocking; custom feeds cannot grant eligibility or confirmation. FTC is
+eligible for inference without being treated as verified origin evidence.
+App Store acceptance of this model remains an explicit distribution gate.
 
 Original app code is MIT licensed. Dataset rights remain with each publisher.
 

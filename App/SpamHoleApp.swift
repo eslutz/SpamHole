@@ -42,6 +42,11 @@ struct SpamHoleApp: App {
                 throw SpamHoleCoreError.invalidValue("The shared protection container is unavailable. Configure the SpamHole App Group for the app and Call Directory extension, then reinstall.")
             }
             let appModel = try AppModel(rootURL: root, testing: testing)
+            #if DEBUG
+            if testing && arguments.contains("--ui-testing-local-blocking") {
+                try DebugLocalBlockingFixture.seed(model: appModel)
+            }
+            #endif
             _model = State(initialValue: appModel)
             startupError = nil
             BackgroundDelegate.model = appModel

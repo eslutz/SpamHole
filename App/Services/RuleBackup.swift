@@ -103,12 +103,17 @@ extension AppModel {
             // Restoring a preference never grants Contacts permission.
             var restoredSettings = backup.settings
             restoredSettings.contactProtection = false
+            // A backup is not the one-time local blocklist review. Already active installations
+            // can retain activation; an inactive installation must review its own computed list.
+            restoredSettings.automaticBlockingEnabled = settings.automaticBlockingEnabled && backup.settings.automaticBlockingEnabled
             try store.restorePersonalState(rules: imported.rules, settings: restoredSettings)
             settings = restoredSettings
             try loadState()
             let rebuilt = await rebuild()
-            if rebuilt { message = imported.notice }
-            else { message = [message, imported.notice].compactMap { $0 }.joined(separator: " ") }
+            let notice = imported.notice + (backup.settings.automaticBlockingEnabled && !restoredSettings.automaticBlockingEnabled
+                ? " Automatic blocking remains off; review your local blocklist before activation." : "")
+            if rebuilt { message = notice }
+            else { message = [message, notice].compactMap { $0 }.joined(separator: " ") }
             return imported
         } catch { message = error.localizedDescription; return nil }
     }

@@ -1,6 +1,6 @@
 # Source qualification and subscription contract
 
-Updated October 4, 2026. SpamHole is call-only and has no message access. The
+Updated October 5, 2026. SpamHole is call-only and has no message access. The
 user retired SMS filtering and its feed gate on this date. Historical SMS
 research remains in `docs/research/` with retirement notices, not as current
 requirements. Source checks do not establish classification accuracy or
@@ -27,20 +27,25 @@ third-party material may exist. Preserve attribution and reviewed source rights.
 
 ## Qualification and authority
 
-Approval belongs to `SourceCatalog`, never to a source's JSON or imported
-settings. The registry grants FTC family weight 1 and no confirmation or
-automatic block authority. FTC evidence supports identification only. Custom
-sources have weight 0, no independent corroboration, and no confirmation or
-automatic block authority, even if a feed supplies grades or tries to reuse a
-bundled source ID. Bundled approval requires matching ID, URL and format.
+Approval belongs to `SourceCatalog`, never to feed JSON or imported settings.
+FTC has family weight 1 and local-inference eligibility, but no confirmation
+authority. Its reports can produce automatic blocks under the [version 2
+policy](local-blocking.md), after one-time user activation. This is a locally
+inferred decision, not a claim that FTC verified a spam originator.
 
-No vetted confirmation source is enabled. Any future automatic call-blocking
-source must be independently reviewed for dataset rights permitting offline
-use, exact originating telephone numbers, substantive confirmation methods,
-review/expiry dates, withdrawals/corrections, source lineage, and legitimate-call
-false-positive evaluation. Bare complaint membership, mirrors, totals or
-self-published grades cannot satisfy that review. Personal rules remain explicit
-user-directed decisions and take priority.
+Custom sources have weight 0, no independent corroboration, and no local-blocking
+or confirmation authority, even if a feed supplies grades or reuses a bundled
+ID. Approval requires exact bundled ID, URL and format. The builder repeats the
+catalog check before admitting local-blocking evidence.
+
+Additional free sources require rights permitting on-device use, exact displayed
+caller numbers, meaningful dated evidence, freshness, corrections and lineage
+review. Mirrors are not independent corroboration. The FCC caller-number dataset
+is a candidate, not an enabled default; current coverage must be verified first.
+No vetted origin-confirmation source is enabled. A future confirmation source
+requires substantive methods and review/expiry dates; complaints cannot assign a
+confirmation grade. Classification quality and App Store acceptance remain open,
+separate from source reachability and the local scoring/export tests.
 
 ## Custom evidence JSON v1
 
