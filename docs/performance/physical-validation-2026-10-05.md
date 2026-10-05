@@ -12,8 +12,9 @@ device identifiers and system screenshots remain private and outside Git.
 | Contacts transitions | Passed within recorded scope | Effective denied/limited/full access, fixture-cache installation, number-change notification and revocation; snapshot precedence checked in memory. Synthetic contacts/journal removed, preference restored, final access denied. |
 | Full consent automation | Unverified | Scoped handler compiles; final run had no pending consent prompt to tap. |
 | Physical VoiceOver | Waived | Explicit user waiver October 5; no physical speech/focus acceptance claimed. |
+| Native extension disable/re-enable | Passed | Physical native switch changed only for SpamHole; disabled status and preserved receipt verified, then enabled status and completed installation verified. Cleanup confirmed enabled protection. |
 | Release performance | Incomplete | CPU and short native Allocations data usable; three automation wall-clock repetitions recorded. Twenty-cycle retained-memory acceptance remains open after the resource guard stopped profiling. |
-| Final phone state | Release reinstalled | Daily cadence restoration passed. Clean normal Release reinstallation succeeded after the bounded retry; final foreground launch requires an unlocked device. |
+| Final phone state | Restored | Daily cadence restoration passed. Clean normal Release reinstalled and launched without test arguments after native extension recovery verification. |
 
 Final opt-in device-test build passed. Shared core tests passed in Debug and
 Release (52 tests each). The initial-denial navigation helper was updated to use
@@ -247,3 +248,18 @@ remains open. The original enabled switch was observed on the read-only retry.
 The clean normal Release app was reinstalled successfully after cancellation;
 Daily cadence had already been restored. No test contacts or call rules were
 created in this follow-up. Raw evidence remains in the ignored private directory.
+
+## Unlocked-device recovery completion
+
+The native disable/re-enable regression subsequently passed in 45.754 seconds.
+Only SpamHole's Call Blocking & Identification switch was changed. Returning to
+the app while disabled showed Disabled and pending computed changes, retaining
+the prior installation-date label. Re-enabling and returning showed Enabled with
+no pending generation; cleanup independently returned to the native control and
+confirmed its original enabled state. This verifies the visible receipt and
+foreground reload recovery, not separately instrumented incremental reload mode.
+No call rules, contacts, or refresh preferences were changed by this test.
+
+The clean normal Release app was then reinstalled and launched successfully with
+no test arguments. Daily cadence remains the restored baseline. Long retained-
+memory profiling and the other release gates remain open as listed above.

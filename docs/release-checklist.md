@@ -21,8 +21,11 @@ Contacts and actual cellular acceptance remain separate. Recorded results are in
   personal-allow delivery passed on the connected device, with installation
   receipts and recipient-side observation. The original rule state was restored.
   This does not establish iOS 26 or TestFlight behavior.
-- Full and incremental call reloads, duplicate rejection, label changes, rules,
-  extension disabled/error recovery, and readable installation receipts.
+- Native extension disable/re-enable recovery passed on the physical iOS 27
+  device: disabled status preserved the prior receipt, re-enable completed
+  installation, and cleanup restored enabled protection. Full versus incremental
+  reload coverage, duplicate rejection, label changes, and other extension-error
+  recovery still require separate evidence.
 - Benchmark 250,000 identification and 25,000 blocking entries; exercise fallback
   tiers without losing explicit rules. Record device, OS, duration, and memory.
 - Normal-data Release CPU and short Allocations observations are recorded. A
