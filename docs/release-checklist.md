@@ -25,6 +25,11 @@ Contacts and actual cellular acceptance remain separate. Recorded results are in
   extension disabled/error recovery, and readable installation receipts.
 - Benchmark 250,000 identification and 25,000 blocking entries; exercise fallback
   tiers without losing explicit rules. Record device, OS, duration, and memory.
+- Normal-data Release CPU and short Allocations observations are recorded. A
+  resource-bounded recording stopped at the host-profiler RAM limit; twenty-cycle
+  retained-memory acceptance, isolated full-rebuild profiling, and separate cold/
+  warm interaction timing distributions remain open. Automation wall-clock totals
+  do not establish app-launch latency.
 - Interrupt download, import, publication, and installation individually. Confirm
   atomic recovery and distinction between computed and installed generations.
 - Disable background refresh, disconnect network, and age evidence. Verify stale

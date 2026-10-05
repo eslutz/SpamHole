@@ -4,6 +4,86 @@ import XCTest
 /// Run only on an explicitly authorized development device.
 @MainActor
 final class DeviceAcceptanceTests: XCTestCase {
+    func testAuthorizedCallDirectoryDisableAndReenable() throws {
+        guard ProcessInfo.processInfo.environment["SPAMHOLE_EXTENSION_RECOVERY"] == "1" else {
+            throw XCTSkip("Native extension recovery requires device-test authorization")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--device-testing-keep-awake"]
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Protection"].waitForExistence(timeout: 20))
+        app.tabBars.buttons["Protection"].tap()
+        waitForIdle(app)
+        XCTAssertTrue(app.staticTexts["Call Directory, Enabled"].exists)
+        XCTAssertFalse(app.staticTexts["Computed changes are awaiting a verified iOS installation."].exists)
+        let receipt = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Installed in iOS,")).firstMatch.label
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        func openControl() -> XCUIElement {
+            app.activate()
+            app.tabBars.buttons["Protection"].tap()
+            app.buttons["Open Call Blocking Settings"].tap()
+            XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 15))
+            let control = settings.switches.matching(NSPredicate(format: "label BEGINSWITH %@", "SpamHole,")).firstMatch
+            XCTAssertTrue(control.waitForExistence(timeout: 15))
+            return control
+        }
+        let control = openControl()
+        XCTAssertEqual(control.value as? String, "1")
+        // Register restoration before the first native setting mutation.
+        defer {
+            let original = openControl()
+            if original.value as? String == "0" { original.tap() }
+            XCTAssertEqual(original.value as? String, "1", "Stop further device tests if extension restoration fails")
+            app.activate()
+            waitForIdle(app)
+            XCTAssertTrue(app.staticTexts["Call Directory, Enabled"].exists)
+        }
+        control.tap()
+        XCTAssertEqual(control.value as? String, "0")
+        app.activate()
+        waitForIdle(app)
+        XCTAssertTrue(app.staticTexts["Call Directory, Disabled"].exists)
+        XCTAssertTrue(app.staticTexts["Computed changes are awaiting a verified iOS installation."].exists)
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Installed in iOS,")).firstMatch.label, receipt)
+        let restored = openControl()
+        restored.tap()
+        XCTAssertEqual(restored.value as? String, "1")
+        app.activate()
+        waitForIdle(app)
+        XCTAssertTrue(app.staticTexts["Call Directory, Enabled"].exists)
+        XCTAssertFalse(app.staticTexts["Computed changes are awaiting a verified iOS installation."].exists)
+        print("CALL_DIRECTORY_DISABLED_PRESERVED_RECEIPT_AND_REENABLED_INSTALLATION_VERIFIED")
+    }
+
+    func testInspectAuthorizedCallDirectorySettings() throws {
+        guard ProcessInfo.processInfo.environment["SPAMHOLE_EXTENSION_RECOVERY"] == "1" else {
+            throw XCTSkip("Native extension inspection requires device-test authorization")
+        }
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["--device-testing-keep-awake"]
+        app.launch()
+        XCTAssertTrue(app.tabBars.buttons["Protection"].waitForExistence(timeout: 20))
+        app.tabBars.buttons["Protection"].tap()
+        waitForIdle(app)
+        XCTAssertTrue(app.staticTexts["Call Directory, Enabled"].exists)
+        app.buttons["Open Call Blocking Settings"].tap()
+        let settings = XCUIApplication(bundleIdentifier: "com.apple.Preferences")
+        XCTAssertTrue(settings.wait(for: .runningForeground, timeout: 15))
+        let control = settings.switches.matching(NSPredicate(format: "label CONTAINS %@", "SpamHole")).firstMatch
+        let observedControl = control.waitForExistence(timeout: 15)
+        let evidence = XCTAttachment(string: settings.debugDescription)
+        evidence.name = "Private native Call Directory settings"
+        evidence.lifetime = .keepAlways
+        add(evidence)
+        app.activate()
+        waitForIdle(app)
+        guard observedControl else {
+            throw XCTSkip("Native Settings did not expose SpamHole's switch; extension recovery remains unverified")
+        }
+    }
+
     func testAcceptAuthorizedPendingContactsConsent() throws {
         guard ProcessInfo.processInfo.environment["SPAMHOLE_DEVICE_CONTACTS_TESTING"] == "1" else {
             throw XCTSkip("Full Contacts consent requires explicit device authorization")
@@ -495,7 +575,7 @@ final class ReleaseTraceSetupTests: XCTestCase {
         app.terminate()
         let options = XCTMeasureOptions()
         options.iterationCount = 3
-        measure(metrics: [XCTApplicationLaunchMetric()], options: options) {
+        measure(metrics: [XCTApplicationLaunchMetric(), XCTClockMetric()], options: options) {
             app.launch()
             XCTAssertTrue(app.tabBars.buttons["Protection"].waitForExistence(timeout: 15))
             app.terminate()
@@ -508,7 +588,16 @@ final class ReleaseTraceSetupTests: XCTestCase {
         let app = XCUIApplication()
         app.activate()
         try waitForManualBaseline(app)
-        for _ in 0..<20 { try interactionCycle(app) }
+        if let raw = ProcessInfo.processInfo.environment["SPAMHOLE_PROFILE_ATTACH_DELAY"],
+           let seconds = Double(raw), (0...60).contains(seconds) {
+            print("RELEASE_PROFILE_READY")
+            Thread.sleep(forTimeInterval: seconds)
+        }
+        for cycle in 0..<20 {
+            let started = ProcessInfo.processInfo.systemUptime
+            try interactionCycle(app)
+            print("RELEASE_INTERACTION_CYCLE \(cycle + 1) seconds=\(ProcessInfo.processInfo.systemUptime - started)")
+        }
     }
 
     /// Requires Manual cadence prepared separately; changes no rules or permissions.
@@ -569,6 +658,15 @@ final class ReleaseTraceSetupTests: XCTestCase {
         expectation(for: NSPredicate(format: "hittable == true AND enabled == true"), evaluatedWith: addRule)
         waitForExpectations(timeout: 10)
         addRule.tap()
+        if !app.textFields["rule.sender"].waitForExistence(timeout: 2) {
+            let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+                .descendants(matching: .any).matching(identifier: "NotificationShortLookView").firstMatch
+            if banner.exists {
+                banner.swipeUp()
+            }
+            // A transient banner may already have disappeared after consuming the tap.
+            if addRule.exists && addRule.isHittable { addRule.tap() }
+        }
         XCTAssertTrue(app.textFields["rule.sender"].waitForExistence(timeout: 10))
         app.buttons["Cancel"].tap()
         XCTAssertTrue(app.buttons["rule.add"].waitForExistence(timeout: 10))

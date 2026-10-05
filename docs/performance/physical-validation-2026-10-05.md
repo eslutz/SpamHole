@@ -12,8 +12,8 @@ device identifiers and system screenshots remain private and outside Git.
 | Contacts transitions | Passed within recorded scope | Effective denied/limited/full access, fixture-cache installation, number-change notification and revocation; snapshot precedence checked in memory. Synthetic contacts/journal removed, preference restored, final access denied. |
 | Full consent automation | Unverified | Scoped handler compiles; final run had no pending consent prompt to tap. |
 | Physical VoiceOver | Waived | Explicit user waiver October 5; no physical speech/focus acceptance claimed. |
-| Release performance | Incomplete | Native Immediate CPU samples usable; Allocations, retained-memory assessment and repeated timing distributions deferred for device handoff. |
-| Final phone state | Restored | Clean normal Release installed and launched without test arguments; Daily cadence retained. |
+| Release performance | Incomplete | CPU and short native Allocations data usable; three automation wall-clock repetitions recorded. Twenty-cycle retained-memory acceptance remains open after the resource guard stopped profiling. |
+| Final phone state | Release reinstalled | Daily cadence restoration passed. Clean normal Release reinstallation succeeded after the bounded retry; final foreground launch requires an unlocked device. |
 
 Final opt-in device-test build passed. Shared core tests passed in Debug and
 Release (52 tests each). The initial-denial navigation helper was updated to use
@@ -186,3 +186,64 @@ was not changed. Cleanup, permission/preference restoration and normal Release
 installation take priority. Longer Allocations and repeated timing distributions
 are deferred and remain unverified. No production-readiness claim follows from
 this waiver.
+
+## Host crash and recovery
+
+The resumed Allocations smoke runs exposed real heap statistics, and a later
+attached interaction run progressed through at least nine cycles before the Mac
+restarted. The temporary result bundles and traces were lost; these observations
+do not close retained-memory or timing acceptance.
+
+The host panic reports a watchdog timeout. It also records the compressor segment
+limit exhausted and low swap space. An Instruments diagnostic shows its footprint
+rising from approximately 334 MB to 8,265 MB on a 16 GB host. This strongly supports
+profiling-related resource pressure as a contributor, without establishing the
+sole cause. Raw diagnostics remain private.
+
+Recovery restored Daily cadence successfully. Clean normal Release and Debug/
+Release device-test builds passed. Core tests passed in Debug and Release (52
+per mode), packaging rejection tests passed (13), and public-site validation
+passed. The next device measurement was blocked by the phone locking and was
+cancelled before changing cadence; no recording remains active. The clean normal
+Release replacement is built but its installation is still pending device access.
+
+Further captures must run separately from builds, discard freed allocation events,
+and use a host-profiler memory cutoff. Evidence now uses an ignored private
+folder that survives restart. An unrelated notification banner interrupted the
+first profiled workload; a bounded dismissal/retry was added to the test harness.
+Full-consent automation and physical VoiceOver are not being reopened in this
+session. Native extension inspection and remaining reliability checks still need
+device execution; development compile success is not device acceptance.
+
+## Resource-bounded follow-up
+
+Three normal-data Release launch/check/termination repetitions produced XCTest
+monotonic wall-clock measurements of 3.521, 3.582 and 3.581 seconds. These include
+automation and termination overhead; XCTest supplied no separate application-launch
+metric. They are not cold-launch latency or a responsiveness threshold.
+
+A saved 13.024-second attached Allocations trace was inspected in native Instruments.
+The Created & Persistent view showed 82.78 MiB of heap plus anonymous VM, including
+81.41 MiB of heap. Trace settings confirmed freed events were discarded. The
+54 MiB recording stopped automatically when combined recorder/service RSS crossed
+the 1 GiB limit (observed peak 1,072 MiB). No long recording was retried. This is
+usable short allocation evidence, not a twenty-cycle retained-memory assessment.
+
+The concurrent interaction workload completed one cycle in 18.396 seconds, then
+failed when a native notification banner interrupted rule-sheet presentation.
+That duration includes UI automation. The earlier twenty-cycle functional pass
+remains historical evidence; this partial retry establishes no memory trend.
+Daily refresh restoration passed after the interruption.
+
+All 15 focused hosted publication/backup regressions passed on the physical device.
+The unhosted core target cannot execute on a physical destination and was explicitly
+skipped by Xcode; the 52-test Debug and Release core runs were host-based. A bounded
+wait exposed SpamHole's native Settings switch successfully on the inspection retry.
+Disable/re-enable recovery is tracked separately from read-only inspection.
+
+The new native disable/re-enable regression compiled, but its device execution
+was cancelled at locked-device preflight before any switch mutation. Its gate
+remains open. The original enabled switch was observed on the read-only retry.
+The clean normal Release app was reinstalled successfully after cancellation;
+Daily cadence had already been restored. No test contacts or call rules were
+created in this follow-up. Raw evidence remains in the ignored private directory.
