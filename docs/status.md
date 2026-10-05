@@ -28,6 +28,13 @@ predicates. Explicit validation fixes both saved JSON and binary call exports;
 its saved 226,265 assessments. CI includes optimized core tests. See the
 [physical validation summary](performance/physical-validation-2026-10-05.md).
 
+Normal Release interaction testing subsequently passed three process launches and
+20 additional Lookup/scrolling/sheet cycles, plus three Home/foreground cycles.
+Physical Contacts authorization was
+read without requesting access; it remains not determined. Follow-up CPU traces
+were empty and the allocation capture had no allocation tables, so functional
+interaction success does not close performance acceptance.
+
 Physical calls, Contacts changes, native extension capacity, Release performance,
 VoiceOver behavior, signed archive validation and distribution remain release gates. See
 [release requirements](release-checklist.md) and [source qualification](sources.md).

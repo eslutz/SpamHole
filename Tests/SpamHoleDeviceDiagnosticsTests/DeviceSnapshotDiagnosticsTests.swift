@@ -1,10 +1,17 @@
 import XCTest
 import SpamHoleCore
+import Contacts
 
 /// Opt-in read-only diagnostics for an explicitly authorized physical device.
 /// Reports sizes and error categories, never sender identifiers or file contents.
 @MainActor
 final class DeviceSnapshotDiagnosticsTests: XCTestCase {
+    func testContactsPermissionBaselineWithoutRequestingAccess() {
+        let status = CNContactStore.authorizationStatus(for: .contacts)
+        // Never request access or enumerate the user's contacts in diagnostics.
+        print("CONTACTS_PERMISSION_BASELINE: \(status.rawValue)")
+        XCTAssertTrue([CNAuthorizationStatus.notDetermined, .restricted, .denied, .authorized, .limited].contains(status))
+    }
     func testNormalSavedGenerationCanBeReadInRelease() throws {
         let identity = try XCTUnwrap(AppIdentity.current)
         let container = try XCTUnwrap(FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identity.appGroupIdentifier))

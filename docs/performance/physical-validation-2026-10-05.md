@@ -42,3 +42,39 @@ exports contained no samples. It is unusable performance evidence, not proof of
 no hangs. Release allocation/interaction tracing, native capacity/fallback tiers,
 Contacts transitions, VoiceOver speech/focus, controlled incoming calls, and
 background/lock/reboot acceptance remain open.
+
+## Follow-up agent-operated verification
+
+- **Release interactions passed:** three process launches and 20 additional
+  Lookup/scrolling/rule-sheet cycles completed on the normal saved dataset.
+  The workload used a reserved synthetic lookup number and saved no rules.
+  Three additional Home/foreground cycles also passed. This establishes
+  functional completion, not launch latency or a memory budget.
+- **Contacts transitions blocked pending baseline decision:** a read-only physical
+  diagnostic verified authorization is not determined. It requested no access and
+  enumerated no contacts. Transition testing cannot restore that pristine state
+  using supported controls without a broader reset or reinstall; no contacts were
+  created and no permissions were changed.
+- **VoiceOver acceptance blocked by observation tooling:** the device query showed
+  VoiceOver off. Xcode's interaction service rejected the physical destination and
+  offered simulators only. Device Hub screen recording was disabled and screenshot
+  capture unavailable. No reliable speech/focus observation path was established,
+  so VoiceOver was left unchanged.
+- **Release profiling blocked by capture tooling:** a 10-second attached SwiftUI
+  recording and a 15-second launch recording with waiting-thread sampling each
+  exported zero CPU rows. Recording options confirmed Time Profiler was enabled.
+  Both issue stores reported a Time Mapping data-stream issue. A separate attached
+  Allocations recording saved but exposed no allocation tables. The cause remains
+  unconfirmed; these recordings are not accepted performance evidence.
+- **Controlled calls pending destination confirmation:** Google Voice sign-in was
+  available, but no recipient number was supplied. No call was placed and no real
+  caller rule was changed.
+
+The first interaction attempt failed when Apple's DTServiceHub crashed before
+workload execution; the standalone retry passed. The first warm test missed a
+rule-sheet presentation after application-wide scrolling. A repeat using
+list-scoped scrolling and explicit toolbar readiness passed; no production code
+change was inferred from that automation failure. Core regression checks passed
+all 52 tests in both Debug and Release, and all 15 hosted regressions passed.
+Daily refresh restoration passed. No temporary contacts or rules were created;
+Contacts and VoiceOver state remained unchanged. Raw evidence remains outside Git.

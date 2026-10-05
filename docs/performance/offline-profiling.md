@@ -62,3 +62,22 @@ Do not invent absolute performance pass thresholds or claim a before/after impro
 Pass criteria for the prepared harness are fixture integrity, successful load/rebuild/publication, correct hit/miss counts, isolated cleanup and usable metric artifacts. Physical Release acceptance still requires recorded device evidence that heavy snapshot/Contacts work stays off the UI actor, interactive operations remain responsive, and retained memory stabilizes. Simulator measurements cannot close those requirements. VoiceOver and real call behavior are separate verification items.
 
 References: [Apple performance tests](https://developer.apple.com/documentation/xctest/performance-tests), [Apple writing and running performance tests](https://developer.apple.com/documentation/xcode/writing-and-running-performance-tests), and [Apple Instruments memory capture guidance](https://developer.apple.com/videos/play/wwdc2022/10106/). Scheme selection uses XcodeGen's documented `selectedTests` option.
+
+## Normal Release interaction workload
+
+Select `ReleaseTraceSetupTests/testPrepareManualCadence`, then run
+`ReleaseTraceSetupTests/testReleaseInteractionWorkload` separately. The workload
+performs three process launches, followed by 20 repeated
+Lookup, scrolling, and rule-sheet presentation/dismissal cycles. It uses a reserved
+synthetic number and never saves a rule. It requires the observed Manual cadence
+and uses bounded UI waits. Run `testRestoreDailyCadence` afterward even if capture
+or workload fails; stop if the original baseline was not Daily.
+
+Run `testReleaseWarmActivations` separately for three Home/foreground cycles.
+
+This is functional workload automation, not an XCTest timing benchmark. Record
+CPU/SwiftUI and Allocations separately and verify nonempty data before treating
+the recording as evidence. A saved trace or successful workload alone does not
+establish performance acceptance. The read-only device diagnostics also provide
+`testContactsPermissionBaselineWithoutRequestingAccess`; it reports only the
+authorization enum and never requests access or enumerates contacts.

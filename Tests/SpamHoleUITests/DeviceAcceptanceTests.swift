@@ -105,6 +105,70 @@ final class DeviceAcceptanceTests: XCTestCase {
 /// restore Daily after capture; these methods require that observed baseline.
 @MainActor
 final class ReleaseTraceSetupTests: XCTestCase {
+    /// Requires Manual cadence prepared separately; changes no rules or permissions.
+    func testReleaseInteractionWorkload() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        for _ in 0..<3 {
+            app.terminate()
+            app.launch()
+            try waitForManualBaseline(app)
+            try interactionCycle(app)
+        }
+        for _ in 0..<20 { try interactionCycle(app) }
+    }
+
+    func testReleaseWarmActivations() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        app.launch()
+        try waitForManualBaseline(app)
+        for _ in 0..<3 {
+            XCUIDevice.shared.press(.home)
+            app.activate()
+            try waitForManualBaseline(app)
+            try interactionCycle(app)
+        }
+    }
+
+    private func waitForManualBaseline(_ app: XCUIApplication) throws {
+        XCTAssertTrue(app.tabBars.buttons["Protection"].waitForExistence(timeout: 15))
+        app.tabBars.buttons["Protection"].tap()
+        guard app.staticTexts["Requested cadence, Manual"].waitForExistence(timeout: 10) else {
+            throw XCTSkip("Prepare Manual cadence before profiling normal data")
+        }
+        let refresh = app.buttons["protection.refresh"]
+        expectation(for: NSPredicate(format: "enabled == true"), evaluatedWith: refresh)
+        waitForExpectations(timeout: 60)
+    }
+
+    private func interactionCycle(_ app: XCUIApplication) throws {
+        app.tabBars.buttons["Lookup"].tap()
+        let sender = app.textFields["lookup.sender"]
+        XCTAssertTrue(sender.waitForExistence(timeout: 10))
+        sender.tap()
+        if let value = sender.value as? String, !value.isEmpty, value != sender.placeholderValue {
+            sender.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: value.count))
+        }
+        sender.typeText("2025550123")
+        app.buttons["lookup.search"].tap()
+        XCTAssertTrue(app.staticTexts["lookup.canonicalSender"].waitForExistence(timeout: 10))
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        list.swipeUp()
+        list.swipeDown()
+        let addRule = app.buttons["rule.add"]
+        expectation(for: NSPredicate(format: "hittable == true AND enabled == true"), evaluatedWith: addRule)
+        waitForExpectations(timeout: 10)
+        addRule.tap()
+        XCTAssertTrue(app.textFields["rule.sender"].waitForExistence(timeout: 10))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["rule.add"].waitForExistence(timeout: 10))
+        app.tabBars.buttons["Protection"].tap()
+    }
+
     func testPrepareManualCadence() throws { try setCadence(from: "Daily", to: "Manual") }
     func testRestoreDailyCadence() throws { try setCadence(from: "Manual", to: "Daily") }
 
