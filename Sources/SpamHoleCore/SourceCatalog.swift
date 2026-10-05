@@ -6,7 +6,7 @@ public enum SourceCatalog {
                           url: URL(string: "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data")!,
                           format: .ftcCSV, license: "U.S. government public data; consumer reports are unverified",
                           channels: [.call], sourceFamilyID: "ftc-dnc",
-                          reviewedTrust: ReviewedSourceTrust(familyWeight: 1))]
+                          reviewedTrust: ReviewedSourceTrust(familyWeight: 1, localInferenceEligible: true))]
 
     }
     public static let releaseBlockers: [String] = []
