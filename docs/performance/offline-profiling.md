@@ -75,6 +75,28 @@ or workload fails; stop if the original baseline was not Daily.
 
 Run `testReleaseWarmActivations` separately for three Home/foreground cycles.
 
+For lower host overhead, select `testReleaseRepeatedInteractionMemory` in the
+Release profiling scheme. It measures the target app with `XCTMemoryMetric`,
+`XCTCPUMetric`, and `XCTClockMetric`, keeping the same process for all cycles.
+`SPAMHOLE_MEMORY_REPETITIONS=3` selects the smoke test; `20` selects the full run.
+XCTest performs one additional discarded warm-up cycle. Export actual metrics
+from the private result bundle; a passing test without memory samples is insufficient.
+Check ordered end-of-cycle physical memory and growth as well as peak memory.
+These measurements do not identify individual leaked objects.
+
+Run `testReleaseForegroundRebuildMeasurements` separately: three measured
+Home/foreground workflows invoke the normal saved-data rebuild and installation.
+The measured interval excludes pressing Home. Run `testReleaseSavedLaunchMeasurements`
+separately for three process-launch repetitions; termination occurs after the
+measurement stops. The dedicated launch metric is accepted only when present in
+the exported results. Clock totals include automation and screen/idle checks;
+do not label them rendering latency or a storage-cache-cold launch.
+
+Keep captures and builds serial. Monitor test/service RSS, result size, free disk,
+and host memory pressure; abort on resource limits and retain the abort reason.
+Restore Daily cadence and install/launch the clean normal Release app afterward,
+including after failures. Raw device result bundles remain private.
+
 This is functional workload automation, not an XCTest timing benchmark. Record
 CPU/SwiftUI and Allocations separately and verify nonempty data before treating
 the recording as evidence. A saved trace or successful workload alone does not

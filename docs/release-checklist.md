@@ -28,11 +28,12 @@ Contacts and actual cellular acceptance remain separate. Recorded results are in
   recovery still require separate evidence.
 - Benchmark 250,000 identification and 25,000 blocking entries; exercise fallback
   tiers without losing explicit rules. Record device, OS, duration, and memory.
-- Normal-data Release CPU and short Allocations observations are recorded. A
-  resource-bounded recording stopped at the host-profiler RAM limit; twenty-cycle
-  retained-memory acceptance, isolated full-rebuild profiling, and separate cold/
-  warm interaction timing distributions remain open. Automation wall-clock totals
-  do not establish app-launch latency.
+- Normal-data Release CPU, short Allocations, twenty-cycle app memory/CPU samples,
+  and separate foreground rebuild workflow measurements are recorded. Lightweight
+  XCTest metrics stayed within host resource limits. Small continued physical-
+  memory growth leaves retained-memory acceptance open; isolated engine rebuild
+  attribution and separate launch/interaction timing distributions also remain
+  open. Automation clock totals do not establish app-launch or rendering latency.
 - Interrupt download, import, publication, and installation individually. Confirm
   atomic recovery and distinction between computed and installed generations.
 - Disable background refresh, disconnect network, and age evidence. Verify stale

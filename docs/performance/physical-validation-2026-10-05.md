@@ -13,8 +13,8 @@ device identifiers and system screenshots remain private and outside Git.
 | Full consent automation | Unverified | Scoped handler compiles; final run had no pending consent prompt to tap. |
 | Physical VoiceOver | Waived | Explicit user waiver October 5; no physical speech/focus acceptance claimed. |
 | Native extension disable/re-enable | Passed | Physical native switch changed only for SpamHole; disabled status and preserved receipt verified, then enabled status and completed installation verified. Cleanup confirmed enabled protection. |
-| Release performance | Incomplete | CPU and short native Allocations data usable; three automation wall-clock repetitions recorded. Twenty-cycle retained-memory acceptance remains open after the resource guard stopped profiling. |
-| Final phone state | Restored | Daily cadence restoration passed. Clean normal Release reinstalled and launched without test arguments after native extension recovery verification. |
+| Release performance | Incomplete | Twenty measured interaction cycles returned app memory, CPU and clock samples with low host overhead. Small continued physical-memory growth leaves retained-memory acceptance open; separate workflow timings are recorded below. |
+| Final phone state | Restoration partly pending | Clean normal Release reinstalled after lightweight measurements. Cadence is temporarily Manual; restoring Daily and final launch require an unlocked device. |
 
 Final opt-in device-test build passed. Shared core tests passed in Debug and
 Release (52 tests each). The initial-denial navigation helper was updated to use
@@ -263,3 +263,51 @@ No call rules, contacts, or refresh preferences were changed by this test.
 The clean normal Release app was then reinstalled and launched successfully with
 no test arguments. Daily cadence remains the restored baseline. Long retained-
 memory profiling and the other release gates remain open as listed above.
+
+## Lightweight Release memory verification
+
+The app-scoped XCTest memory/CPU approach replaced long allocation-event capture.
+Three smoke repetitions returned usable samples with host test/service RSS peaking
+at 253 MiB. The full run completed one discarded warm-up plus 20 measured cycles,
+with host test/service RSS peaking at 159 MiB and no resource cutoff or device
+memory termination. No app flags, Debug bypasses, contacts, or call-rule saves were
+used. Each cycle exercised synthetic Lookup, scrolling, and rule-sheet cancellation
+in the same normal Release process using the saved dataset.
+
+| Metric | Twenty measured cycles |
+| --- | --- |
+| Whole interaction workflow, including automation | 18.574–19.031 s; median 18.847 s |
+| Target app CPU time | 2.566–2.839 s; median 2.739 s |
+| Target app peak physical memory | 108.317–115.067 MB |
+| End-of-cycle physical memory | 107.334 MB first; 114.068 MB last |
+| Per-cycle physical-memory delta | −0.049–3.916 MB; median +0.049 MB |
+
+Memory rose chiefly during the first three measured cycles, then increased another
+0.524 MB over the remaining 17. Those later samples include small decreases and
+continued small increases. This does not establish a leak or a stable retained-
+object plateau: physical footprint also reflects allocator/framework caching and
+automation effects. Retained-memory acceptance remains open pending attribution
+or a demonstrated plateau. No unsupported numeric memory budget was imposed.
+
+Raw samples and resource-guard logs remain private. An initial attempt to select
+the foreground rebuild accidentally repeated the interaction method; it was
+cancelled after the mismatch was detected and excluded from rebuild evidence.
+
+The corrected foreground workflow ran three measured repetitions after warm-up.
+The normal foreground path invokes the saved-data rebuild and installation, with
+Manual cadence preventing source downloads. Clock values were 5.716, 5.730 and
+5.746 seconds; target CPU times were 3.706, 3.631 and 3.661 seconds. Target peak
+physical memory was 783.699, 805.227 and 780.422 MB. End-of-interval footprints
+varied substantially (633.982, 327.322 and 506.334 MB), including a negative
+memory delta on the second repetition. These are whole foreground workflow
+measurements, not isolated engine time or proof of main-thread stack placement.
+The run completed without resource cutoff or device memory termination; host
+test/service RSS peaked at 174 MiB. Separate launch and interaction phase tests
+are compiled but require an unlocked device to execute.
+
+The phone locked before the final launch/interaction suites. After waiting for an
+unlock, the queued launch test and sequencing wait were cancelled without running
+those methods. No device test or trace remains active. The clean normal Release
+app was reinstalled; restoring the original Daily cadence and final foreground
+launch remain pending an unlock. Do not start another profiling workload before
+resolving that restoration or explicitly continuing the authorized Manual session.

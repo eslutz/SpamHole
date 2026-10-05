@@ -567,6 +567,84 @@ final class DeviceAcceptanceTests: XCTestCase {
 /// restore Daily after capture; these methods require that observed baseline.
 @MainActor
 final class ReleaseTraceSetupTests: XCTestCase {
+    func testReleaseLookupMeasurements() throws {
+        let app = try preparedLookup()
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTClockMetric()], options: options) {
+            app.buttons["lookup.search"].tap()
+            XCTAssertTrue(app.staticTexts["lookup.canonicalSender"].waitForExistence(timeout: 10))
+        }
+    }
+
+    func testReleaseScrollMeasurements() throws {
+        let app = try preparedLookup()
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 10))
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTClockMetric()], options: options) {
+            list.swipeUp()
+            list.swipeDown()
+        }
+    }
+
+    func testReleaseRuleSheetMeasurements() throws {
+        let app = try preparedLookup()
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: [XCTClockMetric()], options: options) {
+            app.buttons["rule.add"].tap()
+            XCTAssertTrue(app.textFields["rule.sender"].waitForExistence(timeout: 10))
+            app.buttons["Cancel"].tap()
+            XCTAssertTrue(app.buttons["rule.add"].waitForExistence(timeout: 10))
+        }
+    }
+
+    private func preparedLookup() throws -> XCUIApplication {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        app.launch()
+        try waitForManualBaseline(app)
+        app.tabBars.buttons["Lookup"].tap()
+        let sender = app.textFields["lookup.sender"]
+        XCTAssertTrue(sender.waitForExistence(timeout: 10))
+        sender.tap()
+        sender.typeText("2025550123")
+        app.buttons["lookup.search"].tap()
+        XCTAssertTrue(app.staticTexts["lookup.canonicalSender"].waitForExistence(timeout: 10))
+        return app
+    }
+
+    /// App-scoped physical memory samples avoid retaining allocation-event stacks
+    /// on the host. Keeps one Release process alive across measured cycles.
+    func testReleaseRepeatedInteractionMemory() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        app.launch()
+        try waitForManualBaseline(app)
+        let repetitions = Int(ProcessInfo.processInfo.environment["SPAMHOLE_MEMORY_REPETITIONS"] ?? "20") ?? 20
+        guard [3, 20].contains(repetitions) else {
+            throw XCTSkip("Only the smoke or twenty-cycle workload is supported")
+        }
+        let options = XCTMeasureOptions()
+        options.iterationCount = repetitions
+        var cycle = 0
+        measure(metrics: [XCTMemoryMetric(application: app), XCTCPUMetric(application: app), XCTClockMetric()], options: options) {
+            do {
+                try interactionCycle(app)
+                cycle += 1
+                print("RELEASE_MEMORY_INTERACTION_COMPLETED \(cycle)")
+            } catch {
+                XCTFail("Bounded interaction failed: \(error)")
+            }
+        }
+        XCTAssertTrue(app.staticTexts["Call Directory, Enabled"].exists)
+        XCTAssertFalse(app.staticTexts["Computed changes are awaiting a verified iOS installation."].exists)
+    }
+
     func testReleaseSavedLaunchMeasurements() throws {
         let app = XCUIApplication()
         app.launchArguments = []
@@ -575,10 +653,34 @@ final class ReleaseTraceSetupTests: XCTestCase {
         app.terminate()
         let options = XCTMeasureOptions()
         options.iterationCount = 3
-        measure(metrics: [XCTApplicationLaunchMetric(), XCTClockMetric()], options: options) {
+        options.invocationOptions = [.manuallyStop]
+        measure(metrics: [XCTApplicationLaunchMetric(waitUntilResponsive: true), XCTClockMetric()], options: options) {
             app.launch()
             XCTAssertTrue(app.tabBars.buttons["Protection"].waitForExistence(timeout: 15))
+            stopMeasuring()
             app.terminate()
+        }
+    }
+
+    /// Foreground return invokes the normal saved-data rebuild and installation.
+    /// Reports the whole foreground workflow, including UI automation overhead.
+    func testReleaseForegroundRebuildMeasurements() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = []
+        app.launch()
+        try waitForManualBaseline(app)
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        options.invocationOptions = [.manuallyStart, .manuallyStop]
+        measure(metrics: [XCTMemoryMetric(application: app), XCTCPUMetric(application: app), XCTClockMetric()], options: options) {
+            XCUIDevice.shared.press(.home)
+            startMeasuring()
+            app.activate()
+            do { try waitForManualBaseline(app) }
+            catch { XCTFail("Foreground rebuild failed: \(error)") }
+            XCTAssertFalse(app.staticTexts["Computed changes are awaiting a verified iOS installation."].exists)
+            stopMeasuring()
         }
     }
 
@@ -655,6 +757,12 @@ final class ReleaseTraceSetupTests: XCTestCase {
         list.swipeUp()
         list.swipeDown()
         let addRule = app.buttons["rule.add"]
+        let banner = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+            .descendants(matching: .any).matching(identifier: "NotificationShortLookView").firstMatch
+        if banner.exists {
+            expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: banner)
+            waitForExpectations(timeout: 15)
+        }
         expectation(for: NSPredicate(format: "hittable == true AND enabled == true"), evaluatedWith: addRule)
         waitForExpectations(timeout: 10)
         addRule.tap()
