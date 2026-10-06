@@ -74,10 +74,16 @@ public struct SourceRefreshResult: Sendable {
 }
 
 public actor SourceDownloader {
-    private let store: EvidenceStore
-    private let transport: any SourceHTTPTransport
+    let store: EvidenceStore
+    let transport: any SourceHTTPTransport
+    let phoneBlockAccessApproved: Bool
     public init(store: EvidenceStore, transport: any SourceHTTPTransport = URLSessionSourceTransport()) {
         self.store = store; self.transport = transport
+        self.phoneBlockAccessApproved = SourceCatalog.phoneBlockAccessApproved
+    }
+    // Internal dependency injection permits synthetic transport tests; the app cannot bypass its catalog gate.
+    init(store: EvidenceStore, transport: any SourceHTTPTransport, phoneBlockAccessApproved: Bool) {
+        self.store = store; self.transport = transport; self.phoneBlockAccessApproved = phoneBlockAccessApproved
     }
     @discardableResult
     /// Refreshes an existing enabled subscription. Registration and user changes belong to the app;
@@ -93,7 +99,7 @@ public actor SourceDownloader {
         }
         var previous = try store.sourceState(id: source.id) ?? SourceState(sourceID: source.id)
         previous.lastAttemptAt = now; previous.error = nil
-        try store.saveSourceState(previous)
+        try store.saveSourceState(previous, for: canonical, expectedImportRevision: previous.importRevision)
         do {
             let parsed: ParsedSourceImport; let lastResponse: SourceHTTPResponse
             switch canonical.format {
@@ -126,6 +132,8 @@ public actor SourceDownloader {
                 guard unique.count <= SourceAdapters.maximumRecords else { throw SourceImportError.tooManyRecords }
                 parsed = ParsedSourceImport(records: unique.values.sorted { $0.id < $1.id }, publisherWatermark: coverage, rejectedRecordCount: rejected)
                 lastResponse = landing
+            case .fccCallsJSON, .phoneBlockJSON, .callShieldJSON:
+                return try await refreshOfficial(source: canonical, previous: previous, now: now, headers: headers)
             case .fccJSON:
                 throw SourceImportError.invalidSchema("The retired text-complaint format is unsupported.")
             default:
@@ -138,7 +146,7 @@ public actor SourceDownloader {
                     guard let watermark = previous.publisherWatermark, previous.lastSuccessAt != nil else {
                         throw SourceImportError.invalidSchema("Publisher returned Not Modified before any valid snapshot.")
                     }
-                    previous.lastSuccessAt = now; previous.error = nil; try store.saveSourceState(previous)
+                    previous.lastSuccessAt = now; previous.error = nil; try store.saveSourceState(previous, for: canonical, expectedImportRevision: previous.importRevision)
                     return SourceRefreshResult(sourceID: source.id, recordCount: previous.recordCount, rejectedRecordCount: 0,
                                                publisherWatermark: watermark, lastSuccessAt: now)
                 }
@@ -150,15 +158,18 @@ public actor SourceDownloader {
                                     publisherWatermark: parsed.publisherWatermark, etag: lastResponse.header("ETag"),
                                     lastModified: lastResponse.header("Last-Modified"), recordCount: parsed.records.count)
             try Task.checkCancellation()
-            try store.replaceEvidence(parsed.records, source: canonical, state: state, requireCurrentSource: true)
+            try store.replaceEvidence(parsed.records, source: canonical, state: state, requireCurrentSource: true,
+                expectedImportRevision: previous.importRevision, enforceRevision: true)
             return SourceRefreshResult(sourceID: canonical.id, recordCount: parsed.records.count,
                                        rejectedRecordCount: parsed.rejectedRecordCount, publisherWatermark: parsed.publisherWatermark, lastSuccessAt: now)
         } catch {
-            previous.error = Self.safeError(error); try? store.saveSourceState(previous)
+            if var failed = try? store.sourceState(id: canonical.id), failed.importRevision == previous.importRevision {
+                failed.error = Self.safeError(error); try? store.saveSourceState(failed, for: canonical, expectedImportRevision: previous.importRevision)
+            }
             throw error
         }
     }
-    private func fetch(_ url: URL, headers: [String: String], maximumBytes: Int,
+    func fetch(_ url: URL, headers: [String: String], maximumBytes: Int,
                        allowNotModified: Bool = false) async throws -> SourceHTTPResponse {
         try SourceCatalog.validateURL(url)
         let response = try await transport.fetch(url: url, headers: headers, maximumBytes: maximumBytes)

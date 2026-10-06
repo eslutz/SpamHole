@@ -1,7 +1,8 @@
 # Additional call sources and shared normalization
 
 Date: October 5, 2026.
-Status: conversational design approved; written specification awaiting review.
+Status: written specification approved; implementation and validation recorded in
+`docs/validation/additional-call-sources.md`. PhoneBlock live activation remains gated.
 
 ## Outcome and boundaries
 

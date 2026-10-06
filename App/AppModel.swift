@@ -253,10 +253,23 @@ final class AppModel {
     }
 
     func setSource(_ source: SourceDefinition, enabled: Bool) async {
+        if enabled, let blocker = SourceCatalog.activationBlocker(for: source) { message = blocker; return }
         var updated = source
         updated.enabled = enabled
         do { try store.saveSource(updated); try loadState(); await rebuild() }
         catch { message = error.localizedDescription }
+    }
+
+    func saveSourceCredential(sourceID: String, token: String) async throws {
+        guard sources.contains(where: { $0.id == sourceID }) else { throw SourceImportError.sourceChanged }
+        let previous = try KeychainCredentials.token(for: sourceID)
+        let replacement = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard previous != (replacement.isEmpty ? nil : replacement) else { return }
+        try KeychainCredentials.save(token: replacement, for: sourceID)
+        do { try store.resetSourceEvidence(id: sourceID) }
+        catch { try? KeychainCredentials.save(token: previous ?? "", for: sourceID); throw error }
+        try loadState()
+        await rebuild()
     }
 
     func addSource(name: String, url: String, format: SourceFormat, token: String) async throws {

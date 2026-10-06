@@ -29,6 +29,11 @@ struct LookupView: View {
                         StatusDetail(title: "Local report index", value: (assessment.result.localReportIndex ?? 0).formatted(.number.precision(.fractionLength(1))))
                         StatusDetail(title: "Local blocking index", value: (assessment.result.localBlockingIndex ?? 0).formatted(.number.precision(.fractionLength(1))))
                         StatusDetail(title: "Observed call dates", value: (assessment.result.localObservedDays ?? 0).formatted())
+                        if let summaries = assessment.aggregateRecordCount, summaries > 0 {
+                            StatusDetail(title: "Community summaries", value: summaries.formatted())
+                            Text("Community votes and reviews can influence scores, but do not supply observed-call dates.")
+                                .font(.footnote).foregroundStyle(Color("SecondaryText"))
+                        }
                         Text(assessment.explanation).font(.subheadline)
                         let policy = model.snapshot?.metadata.policy ?? model.settings.policy
                         let thresholds = PolicyThresholds.forPreset(policy)

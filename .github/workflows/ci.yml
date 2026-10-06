@@ -46,7 +46,7 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 17e,OS=27.0' \
             -derivedDataPath "$RUNNER_TEMP/SpamHoleDerivedData" \
             -resultBundlePath "$RUNNER_TEMP/SpamHoleTests.xcresult" \
-            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO test
+            -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- test
       - name: Archive and validate custom identity without signing credentials
         run: |
           xcodebuild -project SpamHole.xcodeproj -scheme SpamHole -configuration Release \

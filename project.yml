@@ -127,7 +127,7 @@ schemes:
       targets:
         - SpamHoleCoreTests
         - name: SpamHoleAppTests
-          selectedTests: [ProtectionPublicationTests, RuleBackupTests]
+          selectedTests: [ProtectionPublicationTests, RuleBackupTests, SourceIntegrationTests]
         - name: SpamHoleUITests
           selectedTests: [SpamHoleUITests]
     archive:

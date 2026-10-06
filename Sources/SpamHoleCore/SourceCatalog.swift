@@ -6,8 +6,33 @@ public enum SourceCatalog {
                           url: URL(string: "https://www.ftc.gov/policy-notices/open-government/data-sets/do-not-call-data")!,
                           format: .ftcCSV, license: "U.S. government public data; consumer reports are unverified",
                           channels: [.call], sourceFamilyID: "ftc-dnc",
-                          reviewedTrust: ReviewedSourceTrust(familyWeight: 1, localInferenceEligible: true))]
+                          reviewedTrust: ReviewedSourceTrust(familyWeight: 1, localInferenceEligible: true)),
+         SourceDefinition(id: "fcc-calls", name: "FCC unwanted-call complaints",
+             url: URL(string: "https://opendata.fcc.gov/resource/vakf-fz8e.json")!,
+             format: .fccCallsJSON, enabled: false, license: "USGOV_WORKS; consumer allegations are unverified",
+             channels: [.call], sourceFamilyID: "fcc-calls",
+             reviewedTrust: ReviewedSourceTrust(familyWeight: 1, localInferenceEligible: true)),
+         SourceDefinition(id: "phoneblock", name: "PhoneBlock community reputation",
+             url: URL(string: "https://phoneblock.net/phoneblock/api/blocklist?format=json")!,
+             format: .phoneBlockJSON, enabled: false, license: "Publisher registration and database-use clearance pending; direct authenticated use only",
+             channels: [.call], sourceFamilyID: "phoneblock",
+             reviewedTrust: ReviewedSourceTrust(familyWeight: 0.5, localInferenceEligible: phoneBlockAccessApproved)),
+         SourceDefinition(id: "callshield", name: "CallShield community evidence",
+             url: URL(string: "https://raw.githubusercontent.com/SysAdminDoc/CallShield/master/data/spam_numbers.manifest.json")!,
+             format: .callShieldJSON, enabled: false, license: "MIT project; only reviewed additional community evidence with permitted upstream rights",
+             channels: [.call], sourceFamilyID: "callshield-community",
+             reviewedTrust: ReviewedSourceTrust(familyWeight: 0.5, localInferenceEligible: true))]
 
+    }
+    // Change only after publisher app registration and an explicit data-use review.
+    public static let phoneBlockAccessApproved = false
+    public static func activationBlocker(for source: SourceDefinition) -> String? {
+        source.id == "phoneblock" && !phoneBlockAccessApproved
+            ? "PhoneBlock requires publisher app registration and database-use clearance before activation." : nil
+    }
+    static func permitsAggregates(_ source: SourceDefinition) -> Bool {
+        let reviewed = canonicalize(source)
+        return reviewed.reviewedTrust != nil && [.phoneBlockJSON, .callShieldJSON].contains(reviewed.format)
     }
     public static let releaseBlockers: [String] = []
 

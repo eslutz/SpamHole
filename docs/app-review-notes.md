@@ -6,10 +6,13 @@ server queries. There is no live caller lookup extension, Message Filter
 extension, message access, public crowdsourcing service, or nonstandard
 background mode.
 
-Version 2 computes local-inference automatic blocklists from FTC reports using
+Version 2 computes local-inference automatic blocklists from FTC and optional FCC reports using
 recency, persistence, source quality, uncertainty and the selected policy. Users
 review the computed count once before activation; personal rules are overrides.
-FTC complaints remain unverified and receive no origin-confirmation grade.
+FTC/FCC complaints remain unverified and receive no origin-confirmation grade.
+Optional signed CallShield community summaries influence bounded scores without
+providing observed-call days. PhoneBlock activation is gated pending publisher
+registration and database-use clearance.
 Custom lists remain identification-only and cannot self-authorize blocking.
 
 Apple guideline 2.5.12 requires blocked numbers to be confirmed spam. This

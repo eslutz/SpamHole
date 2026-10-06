@@ -57,11 +57,11 @@ public struct SnapshotBuilder: Sendable {
         for original in evidence {
             guard let source = sourceMap[original.sourceID], original.numberRole == .displayedSender,
                   original.channel == .call, source.channels == [.call],
-                  original.retractedAt == nil,
+                  original.retractedAt == nil, original.expiresAt.map({ $0 > now }) ?? true,
                   original.reportedAt <= now, original.publisherWatermark <= now,
                   original.observedAt.map({ $0 <= now }) ?? true,
                   let identifier = try? PhoneNormalizer.callNumber(original.numberE164) else { continue }
-            let effectiveDate = original.observedAt ?? original.reportedAt
+            let effectiveDate = original.isAggregate ? (original.activityAt ?? original.reportedAt) : (original.observedAt ?? original.reportedAt)
             if let boundary = boundaries[identifier], effectiveDate < boundary { continue }
             let dedupKey = source.sourceFamilyID + "\u{1F}" + original.id + "\u{1F}" + original.channel.rawValue
             guard seen.insert(dedupKey).inserted else { continue }
@@ -95,12 +95,12 @@ public struct SnapshotBuilder: Sendable {
                 var decision: LocalBlockingDecision = .insufficientEvidence
                 if approvedRecords.isEmpty { decision = .sourceNotEligible }
                 else if freshRecords.isEmpty { decision = .staleCoverage }
-                else if !freshRecords.contains(where: { $0.observedAt.map { days(since: $0, now: now) <= 7 } ?? false }) {
+                else if !freshRecords.contains(where: { !$0.isAggregate && ($0.observedAt.map { days(since: $0, now: now) <= 7 } ?? false) }) {
                     decision = .noRecentObservedCall
                 } else if LocalInferenceEngine.qualifies(local, policy: settings.policy) {
                     decision = settings.automaticBlockingEnabled ? .automaticBlock : .awaitingActivation
                 }
-                let lastDate = callRecords.map { $0.observedAt ?? $0.reportedAt }.max()!
+                let lastDate = callRecords.map { $0.isAggregate ? ($0.activityAt ?? $0.reportedAt) : ($0.observedAt ?? $0.reportedAt) }.max()!
                 let lastAge = days(since: lastDate, now: now)
                 let allow = allowCalls.contains(identifier)
                 let manual = blockCalls.contains(identifier)
@@ -129,7 +129,9 @@ public struct SnapshotBuilder: Sendable {
                 }
                 assessments.append(.init(identifier: identifier, result: result, classification: classification,
                     sourceIDs: Array(Set(callRecords.map(\.sourceID))).sorted(), lastEvidenceAt: lastDate,
-                    explanation: decision.explanation, localDecision: decision))
+                    explanation: decision.explanation, localDecision: decision,
+                    eventRecordCount: callRecords.contains(where: \.isAggregate) ? callRecords.filter { !$0.isAggregate }.count : nil,
+                    aggregateRecordCount: callRecords.contains(where: \.isAggregate) ? callRecords.filter(\.isAggregate).count : nil))
                 if !allow && !manual && !protected, let number = try? PhoneNormalizer.callDirectoryNumber(identifier) {
                     if let label = identificationClassification.label { identificationCandidates.append((number, label, result.associationIndex)) }
                     else if let listed = callRecords.first(where: {
@@ -202,7 +204,19 @@ public struct SnapshotBuilder: Sendable {
             var counts: [Int: Double] = [:]
             let weight = family.compactMap { sources[$0.sourceID]?.reviewedTrust?.familyWeight }.max() ?? 0
             let watermark = family.map(\.publisherWatermark).max() ?? .distantPast
+            var aggregate = 0.0
             for record in family {
+                if record.isAggregate {
+                    guard let source = sources[record.sourceID], SourceCatalog.permitsAggregates(source),
+                          let activity = record.activityAt, activity <= now,
+                          let votes = record.aggregateVotesLowerBound, votes >= 0 else { continue }
+                    let age = days(since: activity, now: now)
+                    if age < 90 {
+                        aggregate = max(aggregate, try ReputationEngine.aggregateMembershipContribution(
+                            votesLowerBound: Double(votes), freshness: 1) * weight * pow(2, -age / 7))
+                    }
+                    continue
+                }
                 // Bucket by UTC calendar date; an arbitrary rebuild time must not split a daily cap.
                 let eventDay = Int(floor((record.observedAt ?? record.reportedAt).timeIntervalSince1970 / 86_400))
                 let age = max(0, Int(floor(now.timeIntervalSince1970 / 86_400)) - eventDay)
@@ -211,8 +225,9 @@ public struct SnapshotBuilder: Sendable {
                     observedDates.insert(Int(floor(event.timeIntervalSince1970 / 86_400)))
                 }
             }
-            families.append(try ReputationEngine.familyContribution(dailyWeightedCounts: counts, weight: weight,
-                freshness: ReputationEngine.sourceFreshness(watermarkAgeDays: days(since: watermark, now: now))))
+            let freshness = try ReputationEngine.sourceFreshness(watermarkAgeDays: days(since: watermark, now: now))
+            let dated = try ReputationEngine.familyContribution(dailyWeightedCounts: counts, weight: weight, freshness: freshness)
+            families.append(max(dated, aggregate * freshness))
         }
         let confirmed = records.filter { approvedConfirmation($0, sources: sources, now: now) }
         let best = confirmed.max { lhs, rhs in
@@ -221,7 +236,7 @@ public struct SnapshotBuilder: Sendable {
             return left < right
         }
         let trustedRecords = records.filter { sources[$0.sourceID]?.reviewedTrust != nil }
-        let datedRecent = trustedRecords.compactMap(\.observedAt).filter { days(since: $0, now: now) < 14 }
+        let datedRecent = trustedRecords.filter { !$0.isAggregate }.compactMap(\.observedAt).filter { days(since: $0, now: now) < 14 }
         let perDay = Dictionary(grouping: datedRecent, by: { Int(floor($0.timeIntervalSince1970 / 86_400)) })
         let burstPenalty: Double = !datedRecent.isEmpty && perDay.count <= 2
             && Double(perDay.values.map(\.count).max() ?? 0) / Double(datedRecent.count) >= 0.8 ? 0.5 : 0

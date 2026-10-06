@@ -58,6 +58,24 @@ final class SpamHoleUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0")
     }
 
+    func testAdditionalSourcesExplainPhoneBlockGateAndUseSecureCredentialEditor() {
+        let app = launchApp()
+        defer { app.terminate() }
+        completeOnboarding(in: app)
+        app.tabBars.buttons["Sources"].tap()
+        for name in ["FCC unwanted-call complaints", "CallShield community evidence", "PhoneBlock community reputation"] {
+            XCTAssertTrue(app.staticTexts[name].waitForExistence(timeout: 5))
+        }
+        app.staticTexts["PhoneBlock community reputation"].tap()
+        let toggle = app.switches["Use this source"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 5))
+        XCTAssertFalse(toggle.isEnabled)
+        app.buttons["Access token"].tap()
+        let token = app.secureTextFields["source.credential"]
+        XCTAssertTrue(token.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["source.credential.save"].isEnabled)
+    }
+
     override func setUpWithError() throws {
         continueAfterFailure = false
     }

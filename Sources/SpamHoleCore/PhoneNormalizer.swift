@@ -2,7 +2,7 @@ import Foundation
 
 public enum PhoneRegion: String, Codable, Sendable { case us, canada }
 public enum PhoneNormalizer {
-    /// Conservative bundled metadata: NANP plus fixed-length UK, AU, FR, JP and IN national numbers.
+    /// Conservative bundled metadata: NANP, DE/IT and fixed-length UK, AU, FR, JP and IN national numbers.
     /// This checks numbering structure, never current assignment or ownership.
     public static func callNumber(_ raw: String, defaultRegion: PhoneRegion = .us) throws -> String {
         _ = defaultRegion // Both supported local regions use country calling code 1.
@@ -29,6 +29,17 @@ public enum PhoneNormalizer {
             guard ("2"..."9").contains(national[0]), ("2"..."9").contains(national[3]),
                   !(national[1] == "1" && national[2] == "1"),
                   !(national[4] == "1" && national[5] == "1") else {
+                throw SpamHoleCoreError.invalidPhoneNumber
+            }
+        } else if canonical.hasPrefix("49") {
+            let national = canonical.dropFirst(2)
+            guard (5...13).contains(national.count), national.first != "0" else {
+                throw SpamHoleCoreError.invalidPhoneNumber
+            }
+        } else if canonical.hasPrefix("39") {
+            // Italy retains the geographic leading zero in its international form.
+            let national = canonical.dropFirst(2)
+            guard (6...11).contains(national.count), ["0", "3"].contains(String(national.prefix(1))) else {
                 throw SpamHoleCoreError.invalidPhoneNumber
             }
         } else {

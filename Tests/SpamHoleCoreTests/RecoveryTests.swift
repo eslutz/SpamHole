@@ -62,6 +62,7 @@ final class RecoveryTests: XCTestCase, @unchecked Sendable {
             numberE164: "+12025550100", channel: .call, observedAt: now, reportedAt: now, publisherWatermark: now)
         let previous = SourceState(sourceID: source.id, lastSuccessAt: now, publisherWatermark: now, etag: "old", recordCount: 1)
         try store.replaceEvidence([original], source: source, state: previous)
+        let persistedPrevious = try store.sourceState(id: source.id)
         var connection: OpaquePointer?
         XCTAssertEqual(sqlite3_open(databaseURL.path, &connection), SQLITE_OK)
         defer { if let connection { sqlite3_close(connection) } }
@@ -76,7 +77,7 @@ final class RecoveryTests: XCTestCase, @unchecked Sendable {
         let reopened = try EvidenceStore(url: databaseURL)
         XCTAssertEqual(try reopened.evidence(), [original])
         XCTAssertEqual(try reopened.sources(), [SourceCatalog.canonicalize(source)])
-        XCTAssertEqual(try reopened.sourceState(id: source.id), previous)
+        XCTAssertEqual(try reopened.sourceState(id: source.id), persistedPrevious)
     }
 
     func testMissingOrCorruptCurrentPointerCannotLoadCallProtection() throws {

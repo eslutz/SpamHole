@@ -9,7 +9,7 @@ public enum CommunicationChannel: String, Codable, Sendable, CaseIterable {
 public enum NumberRole: String, Codable, Sendable { case displayedSender, callback, advertised }
 public enum RuleAction: String, Codable, Sendable { case allow, block }
 public enum SourceFormat: String, Codable, Sendable, CaseIterable {
-    case evidenceJSON, identificationCSV, ftcCSV
+    case evidenceJSON, identificationCSV, ftcCSV, fccCallsJSON, phoneBlockJSON, callShieldJSON
     // Decode-only compatibility: the retired text-complaint source is removed on migration.
     case fccJSON
     public static let allCases: [SourceFormat] = [.evidenceJSON, .identificationCSV, .ftcCSV]
@@ -62,6 +62,8 @@ public struct SourceDefinition: Codable, Sendable, Equatable, Identifiable {
     }
 }
 
+public enum EvidenceKind: String, Codable, Sendable { case individualReport, aggregateMembership, maintainerReview }
+
 public struct EvidenceRecord: Codable, Sendable, Equatable, Identifiable {
     public var id: String
     public var sourceID: String
@@ -85,6 +87,14 @@ public struct EvidenceRecord: Codable, Sendable, Equatable, Identifiable {
     public var positivePenalty: Double
     public var uncertaintyPenalty: Double
     public var identificationLabel: String?
+    public var evidenceKind: EvidenceKind? = nil
+    public var aggregateVotesLowerBound: Int? = nil
+    public var activityAt: Date? = nil
+    public var expiresAt: Date? = nil
+    public var category: String? = nil
+    public var publisherShardID: String? = nil
+    public var reportedDateIsPublicationProxy: Bool? = nil
+    public var isAggregate: Bool { evidenceKind == .aggregateMembership || evidenceKind == .maintainerReview }
     public init(id: String, sourceID: String, sourceFamilyID: String, numberE164: String, channel: CommunicationChannel,
                 numberRole: NumberRole = .displayedSender, observedAt: Date? = nil, reportedAt: Date,
                 publisherWatermark: Date, confirmationGrade: Double = 0, confirmationMethod: String? = nil,
@@ -147,6 +157,16 @@ public struct SourceState: Codable, Sendable, Equatable, Identifiable {
     public var lastModified: String?
     public var recordCount: Int
     public var error: String?
+    public var publisherVersion: Int64? = nil
+    public var publisherDigest: String? = nil
+    public var shardDigests: [String: String]? = nil
+    public var lastFullAttemptAt: Date? = nil
+    public var nextRefreshAt: Date? = nil
+    public var credentialFingerprint: String? = nil
+    public var importRevision: String? = nil
+    public var rejectedRecordCount: Int? = nil
+    public var eventRecordCount: Int? = nil
+    public var aggregateRecordCount: Int? = nil
     public init(sourceID: String, lastAttemptAt: Date? = nil, lastSuccessAt: Date? = nil, publisherWatermark: Date? = nil,
                 etag: String? = nil, lastModified: String? = nil, recordCount: Int = 0, error: String? = nil) {
         self.sourceID = sourceID; self.lastAttemptAt = lastAttemptAt; self.lastSuccessAt = lastSuccessAt
@@ -191,6 +211,8 @@ public struct ReputationAssessment: Codable, Sendable, Equatable, Identifiable {
     public var lastEvidenceAt: Date?
     public var explanation: String
     public var localDecision: LocalBlockingDecision? = nil
+    public var eventRecordCount: Int? = nil
+    public var aggregateRecordCount: Int? = nil
 }
 
 public struct CallIdentificationEntry: Codable, Sendable, Equatable {

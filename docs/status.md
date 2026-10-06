@@ -13,6 +13,13 @@ it does not establish accuracy or App Store acceptance. Custom sources cannot
 self-authorize blocking. See [the policy](local-blocking.md) and
 [version 2 validation](validation/local-blocking-v2.md).
 
+Optional FCC complaints and signed CallShield community summaries are now
+integrated through shared normalization. PhoneBlock full/delta ingestion and
+Keychain credentials are implemented, with live activation gated by publisher
+registration/data-use clearance. Additional built-ins start disabled and preserve
+existing source selections. See [additional-source validation](validation/additional-call-sources.md)
+for exact tested scope and live import counts.
+
 The prior phone import accepted 259,721 records and installed 52 identification
 entries. V1 exported zero automatic blocks. Those historical counts do not describe
 V2's generated blocklist. Earlier physical baseline/personal Block/personal Allow

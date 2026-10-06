@@ -6,7 +6,8 @@ incoming-call lookups, accounts, ads, or telemetry. SpamHole has no access to me
 
 **Development build. Version 2 automatic-call acceptance, classification quality,
 retained-memory stability and distribution review remain open; see `docs/release-checklist.md`.**
-SpamHole downloads FTC evidence, computes reputation locally, and generates an
+SpamHole downloads FTC evidence, offers optional FCC complaints and CallShield
+community summaries, computes reputation locally, and generates an
 automatic blocklist using Conservative, Balanced or Aggressive. Review the local
 count once to activate; subsequent refreshes update the list automatically.
 Personal Allow/Block rules are overrides. FTC reports are unverified; the indices
@@ -57,8 +58,10 @@ The original confirmation-gated Python model is retained as historical version 1
 Production uses the [version 2 local-inference policy](docs/local-blocking.md),
 with independent numerical fixtures. Coefficients are proposed heuristics, not
 empirically calibrated estimates. Only catalog-reviewed sources contribute to
-local blocking; custom feeds cannot grant eligibility or confirmation. FTC is
-eligible for inference without being treated as verified origin evidence.
+local blocking; custom feeds cannot grant eligibility or confirmation. FTC and
+FCC are eligible for inference without being treated as verified origin evidence.
+Community summaries do not invent observed-call dates. PhoneBlock integration is
+implemented but activation awaits publisher registration and data-use clearance.
 App Store acceptance of this model remains an explicit distribution gate.
 
 Original app code is MIT licensed. Dataset rights remain with each publisher.
