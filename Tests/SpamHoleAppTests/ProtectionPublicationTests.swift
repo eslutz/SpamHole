@@ -4,6 +4,86 @@ import SpamHoleCore
 
 @MainActor
 final class ProtectionPublicationTests: XCTestCase {
+    func testDisableDuringRebuildPersistsAndQueuesRemoval() async throws {
+        let model = try model()
+        try seedReputationEvidence(model)
+        _ = await model.rebuild()
+        _ = await model.setAutomaticBlocking(true, reviewedGenerationID: model.snapshot?.metadata.id)
+        model.isWorking = true
+        let accepted = await model.setAutomaticBlocking(false)
+        XCTAssertTrue(accepted)
+        XCTAssertFalse(model.settings.automaticBlockingEnabled)
+        XCTAssertFalse(try XCTUnwrap(model.store.setting(forKey: "app-settings", as: AppSettings.self)).automaticBlockingEnabled)
+        model.isWorking = false
+        _ = await model.rebuild()
+        XCTAssertTrue(try XCTUnwrap(model.snapshot).callBlocking.isEmpty)
+    }
+
+    func testActivationRequiresMatchingReviewAndPolicyChangesRebuildBlocks() async throws {
+        let model = try model()
+        try seedReputationEvidence(model)
+        XCTAssertFalse(model.settings.automaticBlockingEnabled)
+        let built = await model.rebuild()
+        XCTAssertTrue(built)
+        XCTAssertEqual(model.previewAutomaticCount, 2)
+        XCTAssertEqual(model.snapshot?.callBlocking.count, 0)
+        let refused = await model.setAutomaticBlocking(true, reviewedGenerationID: UUID())
+        XCTAssertFalse(refused)
+        XCTAssertFalse(model.settings.automaticBlockingEnabled)
+        let activated = await model.setAutomaticBlocking(true, reviewedGenerationID: model.snapshot?.metadata.id)
+        XCTAssertTrue(activated)
+        XCTAssertTrue(model.settings.automaticBlockingEnabled)
+        XCTAssertEqual(model.snapshot?.callBlocking.count, 2)
+        XCTAssertEqual(model.rules.count, 0)
+        model.settings.policy = .conservative
+        await model.saveSettings()
+        XCTAssertEqual(model.snapshot?.callBlocking.count, 1)
+        model.settings.policy = .aggressive
+        await model.saveSettings()
+        XCTAssertEqual(model.snapshot?.callBlocking.count, 3)
+        try await model.saveRule(raw: "+12025550100", action: .allow)
+        XCTAssertEqual(model.snapshot?.callBlocking.count, 2)
+        try await model.saveRule(raw: "+12025550103", action: .block)
+        let disabled = await model.setAutomaticBlocking(false)
+        XCTAssertTrue(disabled)
+        XCTAssertEqual(model.snapshot?.callBlocking, [1_202_555_0103])
+        XCTAssertEqual(model.snapshot?.metadata.exportedAutomaticCount, 0)
+        XCTAssertFalse(try XCTUnwrap(model.store.setting(forKey: "app-settings", as: AppSettings.self)).automaticBlockingEnabled)
+    }
+
+    func testComputedChangesDoNotClaimOldReceiptAsInstalledBreakdown() async throws {
+        let model = try model()
+        try seedReputationEvidence(model)
+        _ = await model.rebuild()
+        _ = await model.setAutomaticBlocking(true, reviewedGenerationID: model.snapshot?.metadata.id)
+        let snapshot = try XCTUnwrap(model.snapshot)
+        let receipt = CallInstallationReceipt(generationID: snapshot.metadata.id, identificationCount: snapshot.callIdentification.count,
+            blockingCount: snapshot.callBlocking.count)
+        try model.files.writeInstallationReceipt(receipt)
+        model.installed = try await model.pipeline.installationReceipt()
+        let savedReceipt = try XCTUnwrap(model.installed)
+        XCTAssertEqual(model.installedBreakdown?.exportedAutomaticCount, 2)
+        XCTAssertTrue(model.installedBlockingStatus(for: "+12025550100").hasPrefix("Blocked"))
+        model.settings.policy = .conservative
+        await model.saveSettings()
+        XCTAssertEqual(model.installed, savedReceipt)
+        XCTAssertNil(model.installedBreakdown)
+        XCTAssertTrue(model.installedBlockingStatus(for: "+12025550100").contains("awaits installation"))
+    }
+
+    private func seedReputationEvidence(_ model: AppModel) throws {
+        let source = SourceCatalog.builtIns[0]
+        let now = Date()
+        let cases = [("+12025550101", 3), ("+12025550102", 4), ("+12025550100", 7)]
+        let records = cases.flatMap { number, days in (0..<days).flatMap { day in (0..<5).map { report in
+            EvidenceRecord(id: "hosted-\(number)-\(day)-\(report)", sourceID: source.id,
+                sourceFamilyID: source.sourceFamilyID, numberE164: number, channel: .call,
+                observedAt: now.addingTimeInterval(-Double(day) * 86_400), reportedAt: now, publisherWatermark: now)
+        } } }
+        try model.store.replaceEvidence(records, source: source,
+            state: SourceState(sourceID: source.id, lastSuccessAt: now, publisherWatermark: now))
+    }
+
     func testInstallationReceiptWaitsForExtensionAcknowledgement() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }

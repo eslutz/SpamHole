@@ -89,7 +89,7 @@ actor ProtectionPipeline {
         try Task.checkCancellation()
         let snapshot = try SnapshotBuilder(maxIdentificationEntries: identificationLimit, maxBlockingEntries: blockLimit)
             .build(evidence: store.evidence(), sources: store.sources(), rules: store.rules(),
-                   settings: settings, protectedContacts: protectedContacts, previous: previous, now: now)
+                   settings: settings, sourceStates: store.sourceStates(), protectedContacts: protectedContacts, previous: previous, now: now)
         try Task.checkCancellation()
         try files.publish(snapshot: snapshot)
         try store.saveGeneration(snapshot.metadata)

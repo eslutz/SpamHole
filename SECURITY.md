@@ -9,7 +9,7 @@ in an issue. Use synthetic reproduction data.
 
 Incoming calls must not generate server lookups. Contacts and private call rules
 remain local. SpamHole has no access to messages. Custom sources are untrusted;
-a subscription cannot grant confirmation authority. Failed snapshot publication
+a subscription cannot grant local-inference eligibility or confirmation authority. Failed snapshot publication
 or call reload must preserve and accurately report the last installed state.
 
 Before publishing changes, review the staged file list and run Gitleaks against

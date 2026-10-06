@@ -84,6 +84,23 @@ final class IngestionTests: XCTestCase, @unchecked Sendable {
         XCTAssertEqual(parsed.publisherWatermark, SourceAdapters.parseDate("2026-10-02T13:00:00Z"))
         XCTAssertEqual(parsed.records[0].confirmationGrade, 0)
     }
+    func testFTCImportPreservesMixedDateFormatsAcrossRows() throws {
+        let formats = ["2026-10-01T00:00:00.000Z", "2026-10-01T00:00:00Z",
+            "2026-10-01T00:00:00.000", "2026-10-01 00:00:00", "2026-10-01",
+            "10/01/2026 00:00:00", "10/01/2026"]
+        let rows = formats.enumerated().map { index, date in
+            "20255501\(String(format: "%02d", index)),\(date),\(date),Synthetic"
+        }
+        let data = Data((["Company_Phone_Number,Created_Date,Violation_Date,Subject"] + rows).joined(separator: "\n").utf8)
+        let parsed = try SourceAdapters.parse(data: data, source: SourceCatalog.builtIns[0], now: now)
+        let expected = try XCTUnwrap(SourceAdapters.parseDate("2026-10-01T00:00:00Z"))
+        XCTAssertEqual(parsed.records.count, formats.count)
+        XCTAssertEqual(parsed.rejectedRecordCount, 0)
+        XCTAssertTrue(parsed.records.allSatisfy { $0.reportedAt == expected && $0.observedAt == expected })
+        XCTAssertNil(SourceAdapters.parseDate("not-a-date"))
+        XCTAssertNil(SourceAdapters.parseDate(""))
+    }
+
     func testFTCDiscoveryUsesOnlyPublishedSameHostHTTPSCSVLinks() throws {
         let url = SourceCatalog.builtIns[0].url
         let links = try SourceDownloader.discoverFTCFiles(html: """

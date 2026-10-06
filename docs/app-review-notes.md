@@ -6,20 +6,28 @@ server queries. There is no live caller lookup extension, Message Filter
 extension, message access, public crowdsourcing service, or nonstandard
 background mode.
 
-FTC evidence consists of unverified complaints. It only produces neutral caller
-identification, such as "Reported unwanted"; it cannot authorize automatic
-blocking. Explicit personal block rules are user-directed. Custom lists remain
-untrusted identification evidence and cannot assign confirmation authority.
-Automatic call blocking would require reviewed, current source confirmation;
-no such authority is enabled in this build.
+Version 2 computes local-inference automatic blocklists from FTC and optional FCC reports using
+recency, persistence, source quality, uncertainty and the selected policy. Users
+review the computed count once before activation; personal rules are overrides.
+FTC/FCC complaints remain unverified and receive no origin-confirmation grade.
+Optional signed CallShield community summaries influence bounded scores without
+providing observed-call days. PhoneBlock activation is gated pending publisher
+registration and database-use clearance.
+Custom lists remain identification-only and cannot self-authorize blocking.
+
+Apple guideline 2.5.12 requires blocked numbers to be confirmed spam. This
+inference model has not received App Review acceptance; do not describe its
+heuristics as confirmation or submit a misleading confirmation-only explanation.
+Classification-quality evaluation and distribution acceptance remain open.
 
 The containing app periodically refreshes complete datasets when iOS grants
 execution opportunities. Requested cadence is not a guaranteed timer. The app
 shows data refresh, snapshot generation and Call Directory installation state
 separately. Installed call entries have no per-entry expiration API.
 
-Public submission remains pending physical-call acceptance, Contacts behavior,
-VoiceOver, signing and distribution review. Complete this document with the
+Public submission remains pending version 2 physical-call acceptance, independent
+classification-quality evaluation, retained-memory stability, signing and
+distribution review. Physical VoiceOver testing was waived, not passed. Complete this document with the
 release candidate's source contract, recorded acceptance results, reviewer
 instructions and a reviewable TestFlight build before use. Historical SMS
 research is outside the current product scope and is not a release requirement.

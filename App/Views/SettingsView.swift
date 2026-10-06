@@ -7,14 +7,19 @@ struct SettingsView: View {
     @State private var exporting = false
     @State private var importing = false
     @State private var backup: RuleBackupDocument?
+    @State private var reviewingBlocking = false
 
     var body: some View {
         Form {
             ReadableSection("Reputation") {
+                Toggle("Automatic reputation blocking", isOn: Binding(get: { model.settings.automaticBlockingEnabled }, set: { enabled in
+                    if enabled { reviewingBlocking = true }
+                    else { Task { await model.setAutomaticBlocking(false) } }
+                })).accessibilityIdentifier("blocking.enabled")
                 Picker("Policy", selection: $model.settings.policy) {
                     ForEach(PolicyPreset.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
                 }.onChange(of: model.settings.policy) { _, _ in Task { await model.saveSettings() } }
-                Text("Presets change identification thresholds. Automatic feed blocking is unavailable until a qualifying confirmation source is reviewed.")
+                Text("Presets control locally computed automatic blocklists and caller labels. Conservative requires higher scores and more observed call dates; Aggressive accepts lower thresholds. Personal Allow rules take priority.")
                     .font(.footnote).foregroundStyle(Color("SecondaryText"))
             }
             ReadableSection("Refresh") {
@@ -55,6 +60,7 @@ struct SettingsView: View {
         }
         .disabled(model.isWorking)
         .spamHoleBackground().navigationTitle("Settings")
+        .sheet(isPresented: $reviewingBlocking) { AutomaticBlockingReviewView(model: model) }
         .fileExporter(isPresented: $exporting, document: backup, contentType: .json, defaultFilename: "SpamHole-Rules") { result in
             if case .failure(let error) = result { model.message = error.localizedDescription }
         }
@@ -89,8 +95,8 @@ struct PrivacyView: View {
 struct ReleaseRequirementsView: View {
     var body: some View {
         List {
-            ReadableSection("Device acceptance · pending") {
-                Text("Real cellular call behavior, App Group access, Contacts conflicts, stale-entry removal, and database capacity must be verified on physical iPhones. Simulator testing does not establish these outcomes.")
+            ReadableSection("Automatic blocking acceptance · pending") {
+                Text("Version 2 reputation-generated cellular blocking needs separate physical verification. Earlier personal-rule call tests do not establish this behavior. Classification accuracy and memory stability remain open; physical VoiceOver testing was waived, not passed.")
             }
             ReadableSection("Distribution · pending") {
                 Text("Signing, TestFlight delivery, hosted privacy/support pages, source attribution, and metadata review remain separate release requirements. This build has not been submitted to the App Store.")

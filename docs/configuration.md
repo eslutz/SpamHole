@@ -15,7 +15,7 @@ storage/Keychain namespaces; it does not migrate existing rules or credentials.
 No `.env` or server secret is required. Source URLs, cadence and private rules
 are configured in the app. Source bearer tokens are entered in source settings
 and kept in Keychain, never in xcconfig, source code or a committed example.
-Custom feeds cannot grant themselves confirmation authority.
+Custom feeds cannot grant themselves local-inference eligibility or confirmation authority.
 
 Never commit signing keys/profiles, local xcconfig, database exports, contact
 lists, message data, logs, raw device traces or unpublished account metadata.

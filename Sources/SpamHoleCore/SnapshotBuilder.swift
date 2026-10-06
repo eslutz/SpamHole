@@ -8,7 +8,7 @@ public struct SnapshotBuilder: Sendable {
         self.maxBlockingEntries = max(0, maxBlockingEntries)
     }
     public func build(evidence: [EvidenceRecord], sources: [SourceDefinition], rules: [PersonalRule],
-                      settings: AppSettings, protectedContacts: Set<String> = [], previous: ProtectionSnapshot? = nil,
+                      settings: AppSettings, sourceStates: [SourceState] = [], protectedContacts: Set<String> = [], previous: ProtectionSnapshot? = nil,
                       now: Date = Date()) throws -> ProtectionSnapshot {
         guard now.timeIntervalSince1970.isFinite else { throw SpamHoleCoreError.invalidValue("Invalid rebuild date") }
         for source in sources { try SourceCatalog.validateCallSource(source) }
@@ -16,6 +16,18 @@ public struct SnapshotBuilder: Sendable {
             throw SourceImportError.invalidSchema("Only call rules and evidence are supported.")
         }
         let sourceMap = Dictionary(sources.filter(\.enabled).map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // Local-block authority must survive the exact catalog identity check, even for direct callers.
+        let inferenceSources = sourceMap.mapValues(SourceCatalog.canonicalize).filter {
+            $0.value.reviewedTrust?.localInferenceEligible == true && ($0.value.reviewedTrust?.familyWeight ?? 0) > 0
+        }
+        var coverage: [String: Date] = [:]
+        for record in evidence where record.publisherWatermark <= now {
+            coverage[record.sourceID] = max(coverage[record.sourceID] ?? .distantPast, record.publisherWatermark)
+        }
+        for state in sourceStates {
+            // Persisted coverage is authoritative; successful HTTP contact cannot advance it.
+            coverage[state.sourceID] = state.publisherWatermark ?? .distantPast
+        }
         let normalizedRules = try rules.map { rule -> PersonalRule in
             var result = rule
             result.identifier = try PhoneNormalizer.callNumber(rule.identifier)
@@ -24,7 +36,7 @@ public struct SnapshotBuilder: Sendable {
         let contacts = settings.contactProtection ? Set(protectedContacts.compactMap { try? PhoneNormalizer.callNumber($0) }) : []
         let allowCalls = Set(normalizedRules.filter { $0.action == .allow }.map(\.identifier))
         let blockCalls = Set(normalizedRules.filter { $0.action == .block }.map(\.identifier)).subtracting(allowCalls)
-        let callBlocks = try blockCalls.compactMap { identifier -> Int64? in
+        var callBlocks = try blockCalls.compactMap { identifier -> Int64? in
             guard let normalized = try? PhoneNormalizer.callNumber(identifier) else { return nil }
             return try PhoneNormalizer.callDirectoryNumber(normalized)
         }.sorted()
@@ -45,11 +57,11 @@ public struct SnapshotBuilder: Sendable {
         for original in evidence {
             guard let source = sourceMap[original.sourceID], original.numberRole == .displayedSender,
                   original.channel == .call, source.channels == [.call],
-                  original.retractedAt == nil,
+                  original.retractedAt == nil, original.expiresAt.map({ $0 > now }) ?? true,
                   original.reportedAt <= now, original.publisherWatermark <= now,
                   original.observedAt.map({ $0 <= now }) ?? true,
                   let identifier = try? PhoneNormalizer.callNumber(original.numberE164) else { continue }
-            let effectiveDate = original.observedAt ?? original.reportedAt
+            let effectiveDate = original.isAggregate ? (original.activityAt ?? original.reportedAt) : (original.observedAt ?? original.reportedAt)
             if let boundary = boundaries[identifier], effectiveDate < boundary { continue }
             let dedupKey = source.sourceFamilyID + "\u{1F}" + original.id + "\u{1F}" + original.channel.rawValue
             guard seen.insert(dedupKey).inserted else { continue }
@@ -61,14 +73,34 @@ public struct SnapshotBuilder: Sendable {
         }
 
         var assessments: [ReputationAssessment] = []
+        var automaticCandidates: [(number: Int64, index: Double, report: Double)] = []
         var identificationCandidates: [(Int64, String, Double)] = []
         let previousMap = Dictionary((previous?.assessments ?? []).map { ($0.identifier, $0) }, uniquingKeysWith: { first, _ in first })
         for identifier in groups.keys.sorted() {
             let records = groups[identifier] ?? []
             let callRecords = records.filter { $0.channel == .call }
             if !callRecords.isEmpty {
-                let result = try evaluate(records: callRecords, sources: sourceMap, now: now)
-                let lastDate = callRecords.map { $0.observedAt ?? $0.reportedAt }.max()!
+                var result = try evaluate(records: callRecords, sources: sourceMap, now: now)
+                let approvedRecords = callRecords.filter { inferenceSources[$0.sourceID] != nil }
+                let freshRecords = approvedRecords.compactMap { original -> EvidenceRecord? in
+                    guard let watermark = coverage[original.sourceID], watermark <= now,
+                          days(since: watermark, now: now) <= 7 else { return nil }
+                    var record = original; record.publisherWatermark = watermark
+                    return record
+                }
+                let local = try evaluate(records: freshRecords, sources: inferenceSources, now: now, localInference: true)
+                result.localBlockingIndex = local.localBlockingIndex
+                result.localReportIndex = local.reportIndex
+                result.localObservedDays = local.observedDays
+                var decision: LocalBlockingDecision = .insufficientEvidence
+                if approvedRecords.isEmpty { decision = .sourceNotEligible }
+                else if freshRecords.isEmpty { decision = .staleCoverage }
+                else if !freshRecords.contains(where: { !$0.isAggregate && ($0.observedAt.map { days(since: $0, now: now) <= 7 } ?? false) }) {
+                    decision = .noRecentObservedCall
+                } else if LocalInferenceEngine.qualifies(local, policy: settings.policy) {
+                    decision = settings.automaticBlockingEnabled ? .automaticBlock : .awaitingActivation
+                }
+                let lastDate = callRecords.map { $0.isAggregate ? ($0.activityAt ?? $0.reportedAt) : ($0.observedAt ?? $0.reportedAt) }.max()!
                 let lastAge = days(since: lastDate, now: now)
                 let allow = allowCalls.contains(identifier)
                 let manual = blockCalls.contains(identifier)
@@ -76,7 +108,6 @@ public struct SnapshotBuilder: Sendable {
                 var classification = try ReputationEngine.classify(result, policy: settings.policy,
                     trustedInputsFresh: false, lastRelevantEvidenceAgeDays: lastAge,
                     localAllow: allow || protected, localManualBlock: manual)
-                // V1 exports no feed-derived automatic blocks. The pure reference classifier remains parity-tested.
                 if !allow && !manual && !protected && lastAge <= 30,
                    previous?.metadata.policy == settings.policy,
                    boundaries[identifier].map({ $0 > (previous?.metadata.createdAt ?? .distantPast) }) != true,
@@ -87,13 +118,22 @@ public struct SnapshotBuilder: Sendable {
                     } else if old.classification == .identifyReportedUnwanted && classification == .noAction
                         && result.associationIndex >= thresholds.identify - 5 { classification = .identifyReportedUnwanted }
                 }
-                let explanation = result.confirmation == 0
-                    ? "Complaint association index; no approved current origin confirmation. Call blocking requires your personal rule."
-                    : "Origin evidence is evaluated locally. V1 feed-derived automatic call blocking remains disabled."
+                let identificationClassification = classification
+                if allow { decision = .personalAllow }
+                else if manual { decision = .personalBlock }
+                else if protected { decision = .protectedContact }
+                else if decision == .automaticBlock || decision == .awaitingActivation {
+                    let number = try PhoneNormalizer.callDirectoryNumber(identifier)
+                    automaticCandidates.append((number, local.localBlockingIndex ?? 0, local.reportIndex))
+                    if settings.automaticBlockingEnabled { classification = .automaticBlock }
+                }
                 assessments.append(.init(identifier: identifier, result: result, classification: classification,
-                                         sourceIDs: Array(Set(callRecords.map(\.sourceID))).sorted(), lastEvidenceAt: lastDate, explanation: explanation))
+                    sourceIDs: Array(Set(callRecords.map(\.sourceID))).sorted(), lastEvidenceAt: lastDate,
+                    explanation: decision.explanation, localDecision: decision,
+                    eventRecordCount: callRecords.contains(where: \.isAggregate) ? callRecords.filter { !$0.isAggregate }.count : nil,
+                    aggregateRecordCount: callRecords.contains(where: \.isAggregate) ? callRecords.filter(\.isAggregate).count : nil))
                 if !allow && !manual && !protected, let number = try? PhoneNormalizer.callDirectoryNumber(identifier) {
-                    if let label = classification.label { identificationCandidates.append((number, label, result.associationIndex)) }
+                    if let label = identificationClassification.label { identificationCandidates.append((number, label, result.associationIndex)) }
                     else if let listed = callRecords.first(where: {
                         $0.identificationLabel != nil && days(since: $0.observedAt ?? $0.reportedAt, now: now) <= 30
                             && days(since: $0.publisherWatermark, now: now) <= 14
@@ -105,11 +145,33 @@ public struct SnapshotBuilder: Sendable {
             }
 
         }
-        let identification = identificationCandidates.sorted {
+        let selected = automaticCandidates.sorted {
+            if $0.index != $1.index { return $0.index > $1.index }
+            if $0.report != $1.report { return $0.report > $1.report }
+            return $0.number < $1.number
+        }.prefix(maxBlockingEntries - callBlocks.count)
+        let selectedNumbers = Set(selected.map(\.number))
+        let exportedAutomaticCount = settings.automaticBlockingEnabled ? selected.count : 0
+        let personalBlockCount = callBlocks.count
+        if settings.automaticBlockingEnabled { callBlocks = (callBlocks + selected.map(\.number)).sorted() }
+        for i in assessments.indices where assessments[i].localDecision == .automaticBlock || assessments[i].localDecision == .awaitingActivation {
+            let number = try PhoneNormalizer.callDirectoryNumber(assessments[i].identifier)
+            if !selectedNumbers.contains(number) {
+                assessments[i].localDecision = .capacityExcluded
+                assessments[i].explanation = LocalBlockingDecision.capacityExcluded.explanation
+                assessments[i].classification = try ReputationEngine.classify(assessments[i].result,
+                    policy: settings.policy, trustedInputsFresh: false,
+                    lastRelevantEvidenceAgeDays: days(since: assessments[i].lastEvidenceAt ?? .distantPast, now: now))
+            }
+        }
+        let blocked = Set(callBlocks)
+        let identification = identificationCandidates.filter { !blocked.contains($0.0) }.sorted {
             $0.2 == $1.2 ? $0.0 < $1.0 : $0.2 > $1.2
         }.prefix(maxIdentificationEntries).map { CallIdentificationEntry(number: $0.0, label: $0.1) }.sorted { $0.number < $1.number }
         let metadata = GenerationMetadata(createdAt: now, callIdentificationCount: identification.count,
-            callBlockCount: callBlocks.count, policy: settings.policy)
+            callBlockCount: callBlocks.count, policy: settings.policy, scoringVersion: LocalInferenceEngine.scoringVersion,
+            eligibleAutomaticCount: automaticCandidates.count, exportedAutomaticCount: exportedAutomaticCount,
+            personalBlockCount: personalBlockCount, capacityExcludedCount: automaticCandidates.count - selected.count)
         let snapshot = ProtectionSnapshot(metadata: metadata, callIdentification: identification, callBlocking: callBlocks,
                                           assessments: assessments)
         try snapshot.validate()
@@ -133,7 +195,7 @@ public struct SnapshotBuilder: Sendable {
               days(since: record.publisherWatermark, now: now) <= 14 else { return false }
         return true
     }
-    private func evaluate(records: [EvidenceRecord], sources: [String: SourceDefinition], now: Date) throws -> ReputationResult {
+    private func evaluate(records: [EvidenceRecord], sources: [String: SourceDefinition], now: Date, localInference: Bool = false) throws -> ReputationResult {
         let byFamily = Dictionary(grouping: records, by: \.sourceFamilyID)
         var families: [Double] = []
         var observedDates: Set<Int> = []
@@ -142,7 +204,19 @@ public struct SnapshotBuilder: Sendable {
             var counts: [Int: Double] = [:]
             let weight = family.compactMap { sources[$0.sourceID]?.reviewedTrust?.familyWeight }.max() ?? 0
             let watermark = family.map(\.publisherWatermark).max() ?? .distantPast
+            var aggregate = 0.0
             for record in family {
+                if record.isAggregate {
+                    guard let source = sources[record.sourceID], SourceCatalog.permitsAggregates(source),
+                          let activity = record.activityAt, activity <= now,
+                          let votes = record.aggregateVotesLowerBound, votes >= 0 else { continue }
+                    let age = days(since: activity, now: now)
+                    if age < 90 {
+                        aggregate = max(aggregate, try ReputationEngine.aggregateMembershipContribution(
+                            votesLowerBound: Double(votes), freshness: 1) * weight * pow(2, -age / 7))
+                    }
+                    continue
+                }
                 // Bucket by UTC calendar date; an arbitrary rebuild time must not split a daily cap.
                 let eventDay = Int(floor((record.observedAt ?? record.reportedAt).timeIntervalSince1970 / 86_400))
                 let age = max(0, Int(floor(now.timeIntervalSince1970 / 86_400)) - eventDay)
@@ -151,8 +225,9 @@ public struct SnapshotBuilder: Sendable {
                     observedDates.insert(Int(floor(event.timeIntervalSince1970 / 86_400)))
                 }
             }
-            families.append(try ReputationEngine.familyContribution(dailyWeightedCounts: counts, weight: weight,
-                freshness: ReputationEngine.sourceFreshness(watermarkAgeDays: days(since: watermark, now: now))))
+            let freshness = try ReputationEngine.sourceFreshness(watermarkAgeDays: days(since: watermark, now: now))
+            let dated = try ReputationEngine.familyContribution(dailyWeightedCounts: counts, weight: weight, freshness: freshness)
+            families.append(max(dated, aggregate * freshness))
         }
         let confirmed = records.filter { approvedConfirmation($0, sources: sources, now: now) }
         let best = confirmed.max { lhs, rhs in
@@ -161,13 +236,18 @@ public struct SnapshotBuilder: Sendable {
             return left < right
         }
         let trustedRecords = records.filter { sources[$0.sourceID]?.reviewedTrust != nil }
-        let datedRecent = trustedRecords.compactMap(\.observedAt).filter { days(since: $0, now: now) < 14 }
+        let datedRecent = trustedRecords.filter { !$0.isAggregate }.compactMap(\.observedAt).filter { days(since: $0, now: now) < 14 }
         let perDay = Dictionary(grouping: datedRecent, by: { Int(floor($0.timeIntervalSince1970 / 86_400)) })
         let burstPenalty: Double = !datedRecent.isEmpty && perDay.count <= 2
             && Double(perDay.values.map(\.count).max() ?? 0) / Double(datedRecent.count) >= 0.8 ? 0.5 : 0
+        let positive = trustedRecords.map(\.positivePenalty).max() ?? 0
+        let uncertainty = max(burstPenalty, trustedRecords.map(\.uncertaintyPenalty).max() ?? 0)
+        if localInference {
+            return try LocalInferenceEngine.evaluate(independentFamilyValues: families,
+                observedDays: min(14, observedDates.count), positivePenalty: positive, uncertaintyPenalty: uncertainty)
+        }
         return try ReputationEngine.evaluate(independentFamilyValues: families, confirmation: best?.confirmationGrade ?? 0,
             confirmationAgeDays: best.map { days(since: $0.confirmationReviewedAt!, now: now) } ?? 0,
-            observedDays: min(14, observedDates.count), positivePenalty: trustedRecords.map(\.positivePenalty).max() ?? 0,
-            uncertaintyPenalty: max(burstPenalty, trustedRecords.map(\.uncertaintyPenalty).max() ?? 0))
+            observedDays: min(14, observedDates.count), positivePenalty: positive, uncertaintyPenalty: uncertainty)
     }
 }

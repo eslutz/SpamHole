@@ -54,7 +54,7 @@ final class CallOnlyTests: XCTestCase, @unchecked Sendable {
         XCTAssertTrue(try store.evidence().isEmpty)
         XCTAssertEqual(CommunicationChannel.allCases, [.call])
         XCTAssertFalse(SourceFormat.allCases.contains(.fccJSON))
-        XCTAssertEqual(SourceCatalog.builtIns.count, 1)
+        XCTAssertEqual(SourceCatalog.builtIns.count, 4)
         XCTAssertEqual(SourceCatalog.builtIns.first?.channels, [.call])
     }
 

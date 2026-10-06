@@ -83,25 +83,44 @@ public final class EvidenceStore: @unchecked Sendable {
         }
     }
 
+    /// Updates contact/scheduling metadata without restoring a checkpoint captured before suspension.
+    func saveSourceState(_ state: SourceState, for source: SourceDefinition, expectedImportRevision: String?) throws {
+        try locked {
+            try transaction {
+                guard state.sourceID == source.id,
+                      let current = try sources().first(where: { $0.id == source.id }), current.enabled,
+                      current.url == source.url, current.format == source.format, current.channels == source.channels,
+                      try sourceState(id: source.id)?.importRevision == expectedImportRevision else {
+                    throw SourceImportError.sourceChanged
+                }
+                try saveSourceState(state)
+            }
+        }
+    }
+
     /// A failed validation or insert rolls back the entire replacement and source-success state.
     /// Missing IDs in a successful full snapshot are removals; source disable/removal is immediate.
     public func replaceEvidence(_ records: [EvidenceRecord], source: SourceDefinition, state: SourceState,
-                                requireCurrentSource: Bool = false) throws {
+                                requireCurrentSource: Bool = false, expectedImportRevision: String? = nil,
+                                enforceRevision: Bool = false) throws {
         try locked {
             try SourceCatalog.validateCallSource(source)
             guard records.count <= SourceAdapters.maximumRecords, state.sourceID == source.id else {
                 throw SourceImportError.invalidSchema("Replacement source identity or count is invalid.")
             }
-            var canonical = SourceCatalog.canonicalize(source)
-            if requireCurrentSource {
-                guard let current: SourceDefinition = try decodeRows("SELECT payload FROM sources WHERE id=?", [.text(source.id)], as: SourceDefinition.self).first,
-                      current.url == source.url, current.format == source.format, current.channels == source.channels else {
+            try transaction {
+                if enforceRevision, try sourceState(id: source.id)?.importRevision != expectedImportRevision {
                     throw SourceImportError.sourceChanged
                 }
-                // User changes made during network suspension take precedence over the stale request.
-                canonical = SourceCatalog.canonicalize(current)
-            }
-            try transaction {
+                var canonical = SourceCatalog.canonicalize(source)
+                if requireCurrentSource {
+                    guard let current: SourceDefinition = try decodeRows("SELECT payload FROM sources WHERE id=?", [.text(source.id)], as: SourceDefinition.self).first,
+                          current.url == source.url, current.format == source.format, current.channels == source.channels else {
+                        throw SourceImportError.sourceChanged
+                    }
+                    // User changes made during network suspension take precedence over the stale request.
+                    canonical = SourceCatalog.canonicalize(current)
+                }
                 try saveSource(canonical)
                 try execute("DELETE FROM evidence WHERE source_id=?", [.text(source.id)])
                 for original in records {
@@ -112,7 +131,7 @@ public final class EvidenceStore: @unchecked Sendable {
                           [0.0, 0.8, 1.0].contains(original.confirmationGrade) else {
                         throw SourceImportError.invalidSchema("Invalid evidence identity or policy values.")
                     }
-                    var record = original
+                    var record = try EvidenceNormalization.normalize(original, source: canonical)
                     record.sourceFamilyID = canonical.sourceFamilyID
                     let trust = canonical.reviewedTrust
                     if trust?.confirmationAuthority != true || trust?.allowedConfirmationMethods.contains(record.confirmationMethod ?? "") != true {
@@ -125,10 +144,28 @@ public final class EvidenceStore: @unchecked Sendable {
                                  .integer(day), .real(record.observedAt == nil ? 0.5 : 1), .blob(try encoder.encode(record))])
                 }
                 var updatedState = state; updatedState.recordCount = Set(records.map(\.id)).count
+                updatedState.importRevision = UUID().uuidString
+                updatedState.eventRecordCount = records.filter { !$0.isAggregate }.count
+                updatedState.aggregateRecordCount = records.filter(\.isAggregate).count
                 try saveSourceState(updatedState)
             }
         }
     }
+    /// Preserve publisher cadence across credential rotation while invalidating account-bound data.
+    public func resetSourceEvidence(id: String) throws {
+        try locked {
+            guard try sources().contains(where: { $0.id == id }) else { throw SourceImportError.sourceChanged }
+            let old = try sourceState(id: id)
+            try transaction {
+                try execute("DELETE FROM evidence WHERE source_id=?", [.text(id)])
+                var state = SourceState(sourceID: id)
+                state.lastFullAttemptAt = old?.lastFullAttemptAt; state.nextRefreshAt = old?.nextRefreshAt
+                state.importRevision = UUID().uuidString
+                try saveSourceState(state)
+            }
+        }
+    }
+
     public func evidence(enabledOnly: Bool = true) throws -> [EvidenceRecord] {
         try locked {
             let sql = "SELECT evidence.payload FROM evidence JOIN sources ON sources.id=evidence.source_id"
@@ -149,7 +186,7 @@ public final class EvidenceStore: @unchecked Sendable {
         let records = try evidence()
         struct Key: Hashable { let family: String; let sender: String; let day: Int }
         var counts: [Key: Double] = [:]
-        for record in records where record.retractedAt == nil && record.numberRole == .displayedSender {
+        for record in records where record.retractedAt == nil && !record.isAggregate && record.numberRole == .displayedSender {
             let key = Key(family: record.sourceFamilyID, sender: record.numberE164,
                           day: Int(floor((record.observedAt ?? record.reportedAt).timeIntervalSince1970 / 86400)))
             counts[key, default: 0] += record.observedAt == nil ? 0.5 : 1

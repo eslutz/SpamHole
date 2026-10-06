@@ -25,6 +25,21 @@ final class AppModel {
     let pipeline: ProtectionPipeline
     let callInstaller = CallInstallationCoordinator()
     var assessmentCount: Int { preparedSnapshot?.assessmentPositions.count ?? 0 }
+    var previewAutomaticCount: Int {
+        max(0, (snapshot?.metadata.eligibleAutomaticCount ?? 0) - (snapshot?.metadata.capacityExcludedCount ?? 0))
+    }
+    var installedBreakdown: GenerationMetadata? {
+        guard snapshot?.metadata.id == installed?.generationID else { return nil }
+        return snapshot?.metadata
+    }
+    func installedBlockingStatus(for identifier: String) -> String {
+        guard let installed else { return "Installation is not verified." }
+        guard let snapshot, installed.generationID == snapshot.metadata.id else {
+            return "The latest decision awaits installation. Previous iOS entries may still be active."
+        }
+        guard let number = try? PhoneNormalizer.callDirectoryNumber(identifier) else { return "Invalid number." }
+        return snapshot.callBlocking.contains(number) ? "Blocked in the verified installed generation." : "Not blocked in the verified installed generation."
+    }
     func assessment(for identifier: String) -> ReputationAssessment? {
         preparedSnapshot?.assessment(for: identifier)
     }
@@ -199,6 +214,30 @@ final class AppModel {
         } catch { message = error.localizedDescription }
     }
 
+    @discardableResult
+    func setAutomaticBlocking(_ enabled: Bool, reviewedGenerationID: UUID? = nil) async -> Bool {
+        guard !enabled || !isWorking else { return false }
+        if enabled {
+            guard let snapshot, snapshot.metadata.scoringVersion == LocalInferenceEngine.scoringVersion,
+                  snapshot.metadata.id == reviewedGenerationID, snapshot.metadata.policy == settings.policy else {
+                message = "The preview changed. Review the current local blocklist before activating."
+                return false
+            }
+        }
+        var updated = settings
+        updated.automaticBlockingEnabled = enabled
+        do {
+            try store.setSetting(updated, forKey: "app-settings")
+            settings = updated
+            // Activation is a saved user decision; a failed reload stays visibly pending and is retried.
+            if isWorking {
+                rebuildPending = true
+                return true
+            }
+            return await rebuild()
+        } catch { message = error.localizedDescription; return false }
+    }
+
     func setContactProtection(_ enabled: Bool) async {
         do {
             let allowed = !enabled || testing ? true : try await ContactsProtection.requestAccess()
@@ -214,10 +253,23 @@ final class AppModel {
     }
 
     func setSource(_ source: SourceDefinition, enabled: Bool) async {
+        if enabled, let blocker = SourceCatalog.activationBlocker(for: source) { message = blocker; return }
         var updated = source
         updated.enabled = enabled
         do { try store.saveSource(updated); try loadState(); await rebuild() }
         catch { message = error.localizedDescription }
+    }
+
+    func saveSourceCredential(sourceID: String, token: String) async throws {
+        guard sources.contains(where: { $0.id == sourceID }) else { throw SourceImportError.sourceChanged }
+        let previous = try KeychainCredentials.token(for: sourceID)
+        let replacement = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard previous != (replacement.isEmpty ? nil : replacement) else { return }
+        try KeychainCredentials.save(token: replacement, for: sourceID)
+        do { try store.resetSourceEvidence(id: sourceID) }
+        catch { try? KeychainCredentials.save(token: previous ?? "", for: sourceID); throw error }
+        try loadState()
+        await rebuild()
     }
 
     func addSource(name: String, url: String, format: SourceFormat, token: String) async throws {

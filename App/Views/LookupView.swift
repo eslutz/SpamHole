@@ -26,8 +26,19 @@ struct LookupView: View {
                     Text(canonical).font(.headline).textSelection(.enabled).accessibilityIdentifier("lookup.canonicalSender")
                     if let assessment = model.assessment(for: canonical) {
                         StatusDetail(title: "Association index", value: assessment.result.associationIndex.formatted(.number.precision(.fractionLength(1))))
-                        StatusDetail(title: "Block-safety index", value: assessment.result.blockSafetyIndex.formatted(.number.precision(.fractionLength(1))))
+                        StatusDetail(title: "Local report index", value: (assessment.result.localReportIndex ?? 0).formatted(.number.precision(.fractionLength(1))))
+                        StatusDetail(title: "Local blocking index", value: (assessment.result.localBlockingIndex ?? 0).formatted(.number.precision(.fractionLength(1))))
+                        StatusDetail(title: "Observed call dates", value: (assessment.result.localObservedDays ?? 0).formatted())
+                        if let summaries = assessment.aggregateRecordCount, summaries > 0 {
+                            StatusDetail(title: "Community summaries", value: summaries.formatted())
+                            Text("Community votes and reviews can influence scores, but do not supply observed-call dates.")
+                                .font(.footnote).foregroundStyle(Color("SecondaryText"))
+                        }
                         Text(assessment.explanation).font(.subheadline)
+                        let policy = model.snapshot?.metadata.policy ?? model.settings.policy
+                        let thresholds = PolicyThresholds.forPreset(policy)
+                        Text("\(policy.rawValue.capitalized) requires report index \(Int(thresholds.blockAssociation)), blocking index \(Int(thresholds.blockSafety)), and \(thresholds.minimumObservedDays) observed call dates.")
+                            .font(.footnote).foregroundStyle(Color("SecondaryText"))
                         StatusDetail(title: "Latest evidence", value: displayedDate(assessment.lastEvidenceAt))
                         Text("Sources: " + assessment.sourceIDs.map { id in model.sources.first(where: { $0.id == id })?.name ?? id }.joined(separator: ", "))
                             .font(.footnote).foregroundStyle(Color("SecondaryText"))
@@ -35,6 +46,7 @@ struct LookupView: View {
                         Text("No scored evidence in the latest local generation. Absence from a list does not verify that a call is legitimate.")
                             .foregroundStyle(Color("SecondaryText"))
                     }
+                    Text(model.installedBlockingStatus(for: canonical)).font(.footnote)
                     if let rule = model.rules.first(where: { $0.identifier == canonical && $0.channel == .call }) {
                         StatusDetail(title: "Personal call rule", value: rule.action == .allow ? "Allow" : "Block")
                             .accessibilityIdentifier("lookup.callRule")

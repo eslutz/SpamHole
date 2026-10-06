@@ -1,6 +1,6 @@
 # Privacy policy — SpamHole development version
 
-Reviewed October 4, 2026. Public static policy and support pages are maintained
+Reviewed October 5, 2026. Public static policy and support pages are maintained
 in [`site/privacy.html`](site/privacy.html) and [`site/support.html`](site/support.html). This policy describes
 the development source and must be rechecked against the distributed binary.
 
@@ -14,14 +14,19 @@ The shared data directory is excluded from automatic device backups. Its files
 use iOS protection that permits Call Directory extension access after the first
 device unlock.
 
-The containing app requests complete, non-personalized datasets from subscribed
+The containing app requests non-personalized datasets or versioned updates from subscribed
 publishers. Those publishers receive ordinary request metadata, including IP
 address, requested URL, timing, and request headers. Public background downloads
 include a SpamHole application identifier. API credentials, if
 configured, are stored in the iOS Keychain and sent only to their intended source.
-Custom-source credentials use device-only Keychain storage and are not included
+Source credentials use device-only Keychain storage and are not included
 in rule backups. Credentialed transfers restrict redirects to the same HTTPS
 host and port. Publisher metadata retention is controlled by each publisher.
+Built-ins include FTC, optional FCC and optional signed CallShield evidence.
+PhoneBlock activation is unavailable pending publisher registration/data-use
+clearance; its optional token editor uses the same Keychain isolation. Tokens
+can be removed from their source detail screen. Changing a token clears that
+source's authenticated evidence/checkpoint before protection rebuilds.
 Disabling a source stops future refreshes but does not delete its credential;
 a transfer already handed to iOS may finish.
 
@@ -35,7 +40,9 @@ User-requested rule backup contains personal telephone numbers, rule details
 (including saved correction notes), and settings. It excludes contacts, source
 subscriptions, credentials, and downloaded evidence. The user chooses where to
 save or share it, including any cloud destination. A successful import replaces
-personal rules and settings and leaves Contacts protection off. New exports use
+personal rules and settings and leaves Contacts protection off. An inactive
+installation remains inactive even if the backup enabled automatic blocking;
+review the locally generated list to activate it. New exports use
 schema version 2 and contain call rules only. Legacy version 1 backups retain
 valid telephone-number call rules and convert the call portion of former combined
 rules; message-only rules are omitted, and converted/omitted counts are shown.

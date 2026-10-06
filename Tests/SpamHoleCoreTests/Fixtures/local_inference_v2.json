@@ -1,0 +1,167 @@
+{
+  "examples": {
+    "four_days": {
+      "E": 17.345280824200096,
+      "L": 88.5612114660392,
+      "R": 88.5612114660392,
+      "blocks": {
+        "aggressive": true,
+        "balanced": true,
+        "conservative": false
+      },
+      "days": 4,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        17.345280824200096
+      ]
+    },
+    "one_report": {
+      "E": 1.0,
+      "L": 7.343943588462785,
+      "R": 11.750309741540455,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 1,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        1
+      ]
+    },
+    "partial_uncertainty": {
+      "E": 32.0,
+      "L": 49.08421805556329,
+      "R": 98.16843611112658,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 7,
+      "positive": 0,
+      "uncertainty": 0.5,
+      "values": [
+        25,
+        20
+      ]
+    },
+    "positive_veto": {
+      "E": 25.0,
+      "L": 0.0,
+      "R": 95.60630663765926,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 7,
+      "positive": 1,
+      "uncertainty": 0,
+      "values": [
+        25
+      ]
+    },
+    "seven_days": {
+      "E": 25.0,
+      "L": 95.60630663765926,
+      "R": 95.60630663765926,
+      "blocks": {
+        "aggressive": true,
+        "balanced": true,
+        "conservative": true
+      },
+      "days": 7,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        25
+      ]
+    },
+    "single_day_burst": {
+      "E": 5.0,
+      "L": 14.523080358781556,
+      "R": 46.473857148100976,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 1,
+      "positive": 0,
+      "uncertainty": 0.5,
+      "values": [
+        5
+      ]
+    },
+    "three_days": {
+      "E": 13.630295101357724,
+      "L": 71.57560984837026,
+      "R": 81.80069696956602,
+      "blocks": {
+        "aggressive": true,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 3,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        13.630295101357724
+      ]
+    },
+    "two_families": {
+      "E": 32.0,
+      "L": 98.16843611112658,
+      "R": 98.16843611112658,
+      "blocks": {
+        "aggressive": true,
+        "balanced": true,
+        "conservative": true
+      },
+      "days": 7,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        25,
+        20
+      ]
+    },
+    "uncertainty_veto": {
+      "E": 25.0,
+      "L": 0.0,
+      "R": 95.60630663765926,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 7,
+      "positive": 0,
+      "uncertainty": 1,
+      "values": [
+        25
+      ]
+    },
+    "undated": {
+      "E": 25.0,
+      "L": 47.80315331882963,
+      "R": 95.60630663765926,
+      "blocks": {
+        "aggressive": false,
+        "balanced": false,
+        "conservative": false
+      },
+      "days": 0,
+      "positive": 0,
+      "uncertainty": 0,
+      "values": [
+        25
+      ]
+    }
+  },
+  "scoringVersion": 2
+}

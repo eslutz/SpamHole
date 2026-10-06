@@ -9,7 +9,7 @@ public enum CommunicationChannel: String, Codable, Sendable, CaseIterable {
 public enum NumberRole: String, Codable, Sendable { case displayedSender, callback, advertised }
 public enum RuleAction: String, Codable, Sendable { case allow, block }
 public enum SourceFormat: String, Codable, Sendable, CaseIterable {
-    case evidenceJSON, identificationCSV, ftcCSV
+    case evidenceJSON, identificationCSV, ftcCSV, fccCallsJSON, phoneBlockJSON, callShieldJSON
     // Decode-only compatibility: the retired text-complaint source is removed on migration.
     case fccJSON
     public static let allCases: [SourceFormat] = [.evidenceJSON, .identificationCSV, .ftcCSV]
@@ -23,11 +23,25 @@ public struct ReviewedSourceTrust: Codable, Sendable, Equatable {
     public var confirmationAuthority: Bool
     public var allowedConfirmationMethods: [String]
     public var maximumConfirmationGrade: Double
+    public var localInferenceEligible: Bool
     public init(familyWeight: Double = 1, confirmationAuthority: Bool = false,
-                allowedConfirmationMethods: [String] = [], maximumConfirmationGrade: Double = 0) {
+                allowedConfirmationMethods: [String] = [], maximumConfirmationGrade: Double = 0,
+                localInferenceEligible: Bool = false) {
         self.familyWeight = familyWeight; self.confirmationAuthority = confirmationAuthority
         self.allowedConfirmationMethods = allowedConfirmationMethods
         self.maximumConfirmationGrade = maximumConfirmationGrade
+        self.localInferenceEligible = localInferenceEligible
+    }
+    private enum CodingKeys: String, CodingKey {
+        case familyWeight, confirmationAuthority, allowedConfirmationMethods, maximumConfirmationGrade, localInferenceEligible
+    }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        familyWeight = try values.decode(Double.self, forKey: .familyWeight)
+        confirmationAuthority = try values.decode(Bool.self, forKey: .confirmationAuthority)
+        allowedConfirmationMethods = try values.decode([String].self, forKey: .allowedConfirmationMethods)
+        maximumConfirmationGrade = try values.decode(Double.self, forKey: .maximumConfirmationGrade)
+        localInferenceEligible = try values.decodeIfPresent(Bool.self, forKey: .localInferenceEligible) ?? false
     }
 }
 
@@ -47,6 +61,8 @@ public struct SourceDefinition: Codable, Sendable, Equatable, Identifiable {
         self.license = license; self.channels = channels; self.sourceFamilyID = sourceFamilyID; self.reviewedTrust = reviewedTrust
     }
 }
+
+public enum EvidenceKind: String, Codable, Sendable { case individualReport, aggregateMembership, maintainerReview }
 
 public struct EvidenceRecord: Codable, Sendable, Equatable, Identifiable {
     public var id: String
@@ -71,6 +87,14 @@ public struct EvidenceRecord: Codable, Sendable, Equatable, Identifiable {
     public var positivePenalty: Double
     public var uncertaintyPenalty: Double
     public var identificationLabel: String?
+    public var evidenceKind: EvidenceKind? = nil
+    public var aggregateVotesLowerBound: Int? = nil
+    public var activityAt: Date? = nil
+    public var expiresAt: Date? = nil
+    public var category: String? = nil
+    public var publisherShardID: String? = nil
+    public var reportedDateIsPublicationProxy: Bool? = nil
+    public var isAggregate: Bool { evidenceKind == .aggregateMembership || evidenceKind == .maintainerReview }
     public init(id: String, sourceID: String, sourceFamilyID: String, numberE164: String, channel: CommunicationChannel,
                 numberRole: NumberRole = .displayedSender, observedAt: Date? = nil, reportedAt: Date,
                 publisherWatermark: Date, confirmationGrade: Double = 0, confirmationMethod: String? = nil,
@@ -107,8 +131,19 @@ public struct AppSettings: Codable, Sendable, Equatable {
     public var policy: PolicyPreset
     public var cadence: RefreshCadence
     public var contactProtection: Bool
-    public init(policy: PolicyPreset = .balanced, cadence: RefreshCadence = .daily, contactProtection: Bool = false) {
+    public var automaticBlockingEnabled: Bool
+    public init(policy: PolicyPreset = .balanced, cadence: RefreshCadence = .daily, contactProtection: Bool = false,
+                automaticBlockingEnabled: Bool = false) {
         self.policy = policy; self.cadence = cadence; self.contactProtection = contactProtection
+        self.automaticBlockingEnabled = automaticBlockingEnabled
+    }
+    private enum CodingKeys: String, CodingKey { case policy, cadence, contactProtection, automaticBlockingEnabled }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        policy = try values.decode(PolicyPreset.self, forKey: .policy)
+        cadence = try values.decode(RefreshCadence.self, forKey: .cadence)
+        contactProtection = try values.decode(Bool.self, forKey: .contactProtection)
+        automaticBlockingEnabled = try values.decodeIfPresent(Bool.self, forKey: .automaticBlockingEnabled) ?? false
     }
 }
 
@@ -122,6 +157,16 @@ public struct SourceState: Codable, Sendable, Equatable, Identifiable {
     public var lastModified: String?
     public var recordCount: Int
     public var error: String?
+    public var publisherVersion: Int64? = nil
+    public var publisherDigest: String? = nil
+    public var shardDigests: [String: String]? = nil
+    public var lastFullAttemptAt: Date? = nil
+    public var nextRefreshAt: Date? = nil
+    public var credentialFingerprint: String? = nil
+    public var importRevision: String? = nil
+    public var rejectedRecordCount: Int? = nil
+    public var eventRecordCount: Int? = nil
+    public var aggregateRecordCount: Int? = nil
     public init(sourceID: String, lastAttemptAt: Date? = nil, lastSuccessAt: Date? = nil, publisherWatermark: Date? = nil,
                 etag: String? = nil, lastModified: String? = nil, recordCount: Int = 0, error: String? = nil) {
         self.sourceID = sourceID; self.lastAttemptAt = lastAttemptAt; self.lastSuccessAt = lastSuccessAt
@@ -152,6 +197,10 @@ public struct ReputationResult: Codable, Sendable, Equatable {
     public var observedDays: Int
     public var positivePenalty: Double
     public var uncertaintyPenalty: Double
+    /// Version 2 indices use only reviewed, fresh local-inference sources.
+    public var localBlockingIndex: Double? = nil
+    public var localReportIndex: Double? = nil
+    public var localObservedDays: Int? = nil
 }
 public struct ReputationAssessment: Codable, Sendable, Equatable, Identifiable {
     public var id: String { identifier }
@@ -161,6 +210,9 @@ public struct ReputationAssessment: Codable, Sendable, Equatable, Identifiable {
     public var sourceIDs: [String]
     public var lastEvidenceAt: Date?
     public var explanation: String
+    public var localDecision: LocalBlockingDecision? = nil
+    public var eventRecordCount: Int? = nil
+    public var aggregateRecordCount: Int? = nil
 }
 
 public struct CallIdentificationEntry: Codable, Sendable, Equatable {
@@ -175,11 +227,21 @@ public struct GenerationMetadata: Codable, Sendable, Equatable, Identifiable {
     public var callBlockCount: Int
     public var policy: PolicyPreset
     public var schemaVersion: Int
+    public var scoringVersion: Int? = nil
+    public var eligibleAutomaticCount: Int? = nil
+    public var exportedAutomaticCount: Int? = nil
+    public var personalBlockCount: Int? = nil
+    public var capacityExcludedCount: Int? = nil
     public init(id: UUID = UUID(), createdAt: Date = Date(), callIdentificationCount: Int,
-                callBlockCount: Int, policy: PolicyPreset, schemaVersion: Int = 1) {
+                callBlockCount: Int, policy: PolicyPreset, schemaVersion: Int = 1,
+                scoringVersion: Int? = nil, eligibleAutomaticCount: Int? = nil,
+                exportedAutomaticCount: Int? = nil, personalBlockCount: Int? = nil, capacityExcludedCount: Int? = nil) {
         self.id = id; self.createdAt = createdAt; self.callIdentificationCount = callIdentificationCount
         self.callBlockCount = callBlockCount
         self.policy = policy; self.schemaVersion = schemaVersion
+        self.scoringVersion = scoringVersion; self.eligibleAutomaticCount = eligibleAutomaticCount
+        self.exportedAutomaticCount = exportedAutomaticCount; self.personalBlockCount = personalBlockCount
+        self.capacityExcludedCount = capacityExcludedCount
     }
 }
 public struct CallInstallationReceipt: Codable, Sendable, Equatable {
@@ -208,6 +270,15 @@ public struct ProtectionSnapshot: Codable, Sendable, Equatable {
         guard metadata.callIdentificationCount == callIdentification.count,
               metadata.callBlockCount == callBlocking.count else {
             throw SpamHoleCoreError.invalidSnapshot("Entry counts disagree with metadata")
+        }
+        if metadata.scoringVersion == 2 {
+            guard let eligible = metadata.eligibleAutomaticCount, let automatic = metadata.exportedAutomaticCount,
+                  let personal = metadata.personalBlockCount, let excluded = metadata.capacityExcludedCount,
+                  eligible >= 0, automatic >= 0, personal >= 0, excluded >= 0,
+                  automatic <= eligible, excluded <= eligible - automatic,
+                  personal <= callBlocking.count, automatic == callBlocking.count - personal else {
+                throw SpamHoleCoreError.invalidSnapshot("Blocking origin counts disagree with exports")
+            }
         }
         let identified = callIdentification.map(\.number)
         guard zip(identified, identified.dropFirst()).allSatisfy({ $0 < $1 }) else {

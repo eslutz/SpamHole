@@ -4,6 +4,15 @@ import SpamHoleCore
 
 @MainActor
 final class RuleBackupTests: XCTestCase {
+    func testBackupCannotSilentlyActivateAutomaticBlocking() async throws {
+        let (model, url) = try modelAndBackupURL()
+        try write(RuleBackup(rules: [], settings: AppSettings(automaticBlockingEnabled: true)), to: url)
+        let imported = await model.importBackup(from: url)
+        XCTAssertNotNil(imported)
+        XCTAssertFalse(model.settings.automaticBlockingEnabled)
+        XCTAssertFalse(try XCTUnwrap(model.store.setting(forKey: "app-settings", as: AppSettings.self)).automaticBlockingEnabled)
+    }
+
     private func modelAndBackupURL() throws -> (AppModel, URL) {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
